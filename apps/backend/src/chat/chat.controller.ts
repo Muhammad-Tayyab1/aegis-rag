@@ -17,22 +17,33 @@ export class ChatController {
     private p: PrismaService,
   ) {}
   private async context(b: Ask, u: AuthenticatedUser) {
-    let hits = await this.r.search(u.tenantId, b.question);
+    const cached = await this.p.withTenant(u.tenantId, (tx) =>
+      tx.semanticCache.findFirst({
+        where: {
+          tenantId: u.tenantId,
+          question: b.question,
+          expiresAt: { gt: new Date() },
+        },
+      }),
+    );
+    let hits = cached ? [] : await this.r.search(u.tenantId, b.question);
     let rerouted = false;
-    if (!hits.length || hits[0].score < 0.02) {
+    if (!cached && (!hits.length || hits[0].score < 0.02)) {
       rerouted = true;
       hits = await this.r.search(
         u.tenantId,
         `${b.question} detailed policy procedure`,
       );
     }
-    const answer = hits.length
-      ? hits
-          .slice(0, 3)
-          .map((x) => x.content)
-          .join("\n\n")
-          .slice(0, 3000)
-      : "I could not find relevant information in this workspace.";
+    const answer = cached
+      ? cached.answer
+      : hits.length
+        ? hits
+            .slice(0, 3)
+            .map((x) => x.content)
+            .join("\n\n")
+            .slice(0, 3000)
+        : "I could not find relevant information in this workspace.";
     return this.p.withTenant(u.tenantId, async (tx) => {
       const q = await tx.query.create({
         data: {
@@ -65,14 +76,30 @@ export class ChatController {
           details: { filename: h.filename },
         })),
       });
+      if (!cached)
+        await tx.semanticCache.create({
+          data: {
+            tenantId: u.tenantId,
+            question: b.question,
+            answer,
+            citations: hits.map((h) => ({
+              chunkId: h.id,
+              document: h.filename,
+              snippet: h.content.slice(0, 240),
+            })),
+            expiresAt: new Date(Date.now() + 86400000),
+          },
+        });
       return {
         queryId: q.id,
         answer,
-        citations: hits.map((h) => ({
-          chunkId: h.id,
-          document: h.filename,
-          snippet: h.content.slice(0, 240),
-        })),
+        citations: cached
+          ? (cached.citations as any[])
+          : hits.map((h) => ({
+              chunkId: h.id,
+              document: h.filename,
+              snippet: h.content.slice(0, 240),
+            })),
       };
     });
   }
