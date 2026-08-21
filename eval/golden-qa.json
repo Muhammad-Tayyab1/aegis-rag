@@ -1,0 +1,12 @@
+[
+  {
+    "tenant": "aegis-demo",
+    "question": "What is our refund policy?",
+    "expectedKeywords": ["refund", "policy"]
+  },
+  {
+    "tenant": "aegis-demo",
+    "question": "How do I escalate an incident?",
+    "expectedKeywords": ["incident", "escalat"]
+  }
+]
