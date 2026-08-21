@@ -1,1 +1,18 @@
-import{Body,Controller,Param,Post,UseGuards}from'@nestjs/common';import{AuthGuard}from'@nestjs/passport';import{IsIn,IsOptional,IsString}from'class-validator';import{CurrentUser}from'../common/tenant/current-user.decorator';import{AuthenticatedUser}from'../common/tenant/tenant.types';import{PrismaService}from'../common/database/prisma.service';class Vote{@IsIn([-1,1])rating!:number;@IsOptional()@IsString()note?:string}@UseGuards(AuthGuard('jwt'))@Controller('feedback')export class FeedbackController{constructor(private p:PrismaService){}@Post(':queryId')save(@Param('queryId')queryId:string,@Body()b:Vote,@CurrentUser()u:AuthenticatedUser){return this.p.withTenant(u.tenantId,tx=>tx.feedback.upsert({where:{queryId},create:{queryId,tenantId:u.tenantId,rating:b.rating,note:b.note},update:{rating:b.rating,note:b.note}}))}}
+import {Body, Controller, Param, Post, UseGuards} from '@nestjs/common'
+import {AuthGuard} from '@nestjs/passport'
+import {IsIn, IsOptional, IsString} from 'class-validator'
+import {CurrentUser} from '../common/tenant/current-user.decorator'
+import {AuthenticatedUser} from '../common/tenant/tenant.types'
+import {PrismaService} from '../common/database/prisma.service'
+class Vote {
+	@IsIn([-1, 1]) rating!: number
+	@IsOptional() @IsString() note?: string
+}
+@UseGuards(AuthGuard('jwt'))
+@Controller('feedback')
+export class FeedbackController {
+	constructor(private p: PrismaService) {}
+	@Post(':queryId') save(@Param('queryId') queryId: string, @Body() b: Vote, @CurrentUser() u: AuthenticatedUser) {
+		return this.p.withTenant(u.tenantId, (tx) => tx.feedback.upsert({where: {queryId}, create: {queryId, tenantId: u.tenantId, rating: b.rating, note: b.note}, update: {rating: b.rating, note: b.note}}))
+	}
+}

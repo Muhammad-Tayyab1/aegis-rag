@@ -1,1 +1,4 @@
-declare module 'pdf-parse' { const parse:(buffer:Buffer)=>Promise<{text:string}>; export default parse; }
+declare module 'pdf-parse' {
+	const parse: (buffer: Buffer) => Promise<{text: string}>
+	export default parse
+}

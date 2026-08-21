@@ -1,1 +1,4 @@
-import{Module}from'@nestjs/common';import{RetrievalService}from'./retrieval.service';@Module({providers:[RetrievalService],exports:[RetrievalService]})export class RetrievalModule{}
+import {Module} from '@nestjs/common'
+import {RetrievalService} from './retrieval.service'
+@Module({providers: [RetrievalService], exports: [RetrievalService]})
+export class RetrievalModule {}
