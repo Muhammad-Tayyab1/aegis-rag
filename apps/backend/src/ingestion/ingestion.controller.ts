@@ -58,6 +58,9 @@ export class IngestionController {
         "Document contains a blocked prompt-injection pattern",
       );
     }
+    content = content
+      .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[REDACTED_EMAIL]")
+      .replace(/(?:\+?\d[\d\s().-]{8,}\d)/g, "[REDACTED_PHONE]");
     return this.s.ingest(u.tenantId, f.originalname, content, "file");
   }
 }
