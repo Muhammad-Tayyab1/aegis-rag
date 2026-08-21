@@ -6,6 +6,7 @@ import { CurrentUser } from "../common/tenant/current-user.decorator";
 import { AuthenticatedUser } from "../common/tenant/tenant.types";
 import { PrismaService } from "../common/database/prisma.service";
 import { RetrievalService } from "../retrieval/retrieval.service";
+import { LlmService } from "./llm.service";
 class Ask {
   @IsString() question!: string;
 }
@@ -15,6 +16,7 @@ export class ChatController {
   constructor(
     private r: RetrievalService,
     private p: PrismaService,
+    private llm: LlmService,
   ) {}
   private async context(b: Ask, u: AuthenticatedUser) {
     const cached = await this.p.withTenant(u.tenantId, (tx) =>
@@ -37,13 +39,7 @@ export class ChatController {
     }
     const answer = cached
       ? cached.answer
-      : hits.length
-        ? hits
-            .slice(0, 3)
-            .map((x) => x.content)
-            .join("\n\n")
-            .slice(0, 3000)
-        : "I could not find relevant information in this workspace.";
+      : await this.llm.answer(b.question, hits);
     return this.p.withTenant(u.tenantId, async (tx) => {
       const q = await tx.query.create({
         data: {
