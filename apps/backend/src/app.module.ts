@@ -10,6 +10,8 @@ import { TracingController } from "./tracing/tracing.controller";
 import { UsageController } from "./usage/usage.controller";
 import { FeedbackController } from "./feedback/feedback.controller";
 import { TicketController } from "./tools/ticket.controller";
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { APP_GUARD } from "@nestjs/core";
 
 @Module({
   imports: [
@@ -19,6 +21,7 @@ import { TicketController } from "./tools/ticket.controller";
     TenantsModule,
     IngestionModule,
     ChatModule,
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
   ],
   controllers: [
     HealthController,
@@ -27,5 +30,6 @@ import { TicketController } from "./tools/ticket.controller";
     FeedbackController,
     TicketController,
   ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
