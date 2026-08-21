@@ -12,6 +12,7 @@ import { FeedbackController } from "./feedback/feedback.controller";
 import { TicketController } from "./tools/ticket.controller";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { APP_GUARD } from "@nestjs/core";
+import { ScheduleModule } from "@nestjs/schedule";
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { APP_GUARD } from "@nestjs/core";
     IngestionModule,
     ChatModule,
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
+    ScheduleModule.forRoot(),
   ],
   controllers: [
     HealthController,
