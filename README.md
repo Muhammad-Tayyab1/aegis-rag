@@ -2,7 +2,9 @@
 
 **A production-minded, multi-tenant RAG platform with explainable retrieval.**
 
-Aegis RAG turns client knowledge into a secure, searchable workspace. It combines pgvector semantic search with PostgreSQL full-text search, keeps every tenant isolated at the database layer, and records the retrieval evidence behind each answer.
+Aegis RAG turns client knowledge into a secure, searchable workspace. It is aimed at hospitals, healthcare operations teams, and other regulated or multi-client businesses that need staff to find internal policies, procedures, product documentation, and operational answers with source citations. It combines pgvector semantic search with PostgreSQL full-text search, keeps every tenant isolated at the database layer, and records the retrieval evidence behind each answer.
+
+> Aegis is a technical foundation, not a claim of HIPAA, SOC 2, or other regulatory certification. Production deployments require the organization’s own compliance review and controls.
 
 ## Why Aegis
 
