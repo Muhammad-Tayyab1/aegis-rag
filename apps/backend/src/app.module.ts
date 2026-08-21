@@ -9,6 +9,7 @@ import { ChatModule } from "./chat/chat.module";
 import { TracingController } from "./tracing/tracing.controller";
 import { UsageController } from "./usage/usage.controller";
 import { FeedbackController } from "./feedback/feedback.controller";
+import { TicketController } from "./tools/ticket.controller";
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { FeedbackController } from "./feedback/feedback.controller";
     TracingController,
     UsageController,
     FeedbackController,
+    TicketController,
   ],
 })
 export class AppModule {}
