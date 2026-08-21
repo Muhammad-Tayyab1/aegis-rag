@@ -20,7 +20,16 @@ export class ConnectorsController {
   ) {}
   @Get() list(@CurrentUser() u: AuthenticatedUser) {
     return this.p.withTenant(u.tenantId, (tx) =>
-      tx.connector.findMany({ orderBy: { createdAt: "desc" } }),
+      tx.connector.findMany({
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          lastSyncedAt: true,
+          createdAt: true,
+        },
+      }),
     );
   }
   @Post() create(
