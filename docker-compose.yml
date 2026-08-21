@@ -1,0 +1,29 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aegis_rag}
+      POSTGRES_USER: ${POSTGRES_USER:-rag}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  backend:
+    build: { context: ., dockerfile: apps/backend/Dockerfile }
+    environment: { DATABASE_URL: postgresql://rag:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-aegis_rag}, JWT_SECRET: ${JWT_SECRET:-development-only-change-me}, API_PORT: 4000 }
+    ports: ["4000:4000"]
+    depends_on: { postgres: { condition: service_healthy } }
+  frontend:
+    build: { context: ., dockerfile: apps/frontend/Dockerfile }
+    environment: { NEXT_PUBLIC_API_URL: http://localhost:4000/api }
+    ports: ["3000:3000"]
+    depends_on: [backend]
+
+volumes:
+  postgres_data:

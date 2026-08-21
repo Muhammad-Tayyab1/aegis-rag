@@ -1,0 +1,17 @@
+{
+  "name": "aegis-rag",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev": "npm run dev --workspace=@aegis-rag/frontend",
+    "dev:api": "npm run start:dev --workspace=@aegis-rag/backend",
+    "build": "npm run build --workspaces",
+    "lint": "npm run lint --workspaces",
+    "test": "npm run test --workspace=@aegis-rag/backend",
+    "db:migrate": "prisma migrate deploy --schema apps/backend/prisma/schema.prisma",
+    "prisma:generate": "prisma generate --schema apps/backend/prisma/schema.prisma",
+    "eval": "tsx eval/run.ts"
+  },
+  "devDependencies": { "prisma": "^6.1.0", "tsx": "^4.19.2" }
+}

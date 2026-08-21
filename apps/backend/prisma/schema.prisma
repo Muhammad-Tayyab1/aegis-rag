@@ -1,0 +1,183 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  admin
+  member
+}
+
+enum DocumentStatus {
+  pending
+  processing
+  ready
+  failed
+}
+
+model Tenant {
+  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  slug      String       @unique
+  plan      String       @default("starter")
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  config    TenantConfig?
+  users     User[]
+  documents Document[]
+  chunks    Chunk[]
+  queries   Query[]
+  traces    QueryTrace[]
+  feedback  Feedback[]
+  connectors Connector[]
+  tickets Ticket[]
+  cache SemanticCache[]
+  @@map("tenants")
+}
+
+model TenantConfig {
+  tenantId          String   @id @map("tenant_id") @db.Uuid
+  chunkSize         Int      @default(800) @map("chunk_size")
+  chunkOverlap      Int      @default(100) @map("chunk_overlap")
+  embeddingModel    String   @default("all-MiniLM-L6-v2") @map("embedding_model")
+  retrievalStrategy String   @default("hybrid") @map("retrieval_strategy")
+  rerankEnabled     Boolean  @default(true) @map("rerank_enabled")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  @@map("tenant_config")
+}
+
+model User {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         UserRole @default(member)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  queries      Query[]
+  @@map("users")
+}
+
+model Document {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String         @map("tenant_id") @db.Uuid
+  sourceType  String         @map("source_type")
+  filename    String
+  sourceUri   String?        @map("source_uri")
+  status      DocumentStatus @default(pending)
+  contentHash String?        @map("content_hash")
+  uploadedAt  DateTime       @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+  updatedAt   DateTime       @default(now()) @map("updated_at") @db.Timestamptz(6)
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  chunks      Chunk[]
+  @@map("documents")
+}
+
+model Chunk {
+  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId String       @map("document_id") @db.Uuid
+  tenantId   String       @map("tenant_id") @db.Uuid
+  ordinal    Int
+  content    String
+  embedding  Unsupported("vector(384)")?
+  metadata   Json         @default("{}")
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  document   Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tenant     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  traces     QueryTrace[]
+  @@unique([documentId, ordinal])
+  @@index([tenantId, documentId])
+  @@map("chunks")
+}
+
+model Query {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String       @map("tenant_id") @db.Uuid
+  userId           String       @map("user_id") @db.Uuid
+  question         String
+  answer           String?
+  tokensUsed       Int          @default(0) @map("tokens_used")
+  estimatedCostUsd Decimal      @default(0) @map("estimated_cost_usd") @db.Decimal(12, 6)
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  traces           QueryTrace[]
+  feedback         Feedback?
+  @@index([tenantId, createdAt])
+  @@map("queries")
+}
+
+model QueryTrace {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  queryId   String   @map("query_id") @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  stage     String
+  chunkId   String?  @map("chunk_id") @db.Uuid
+  rank      Int?
+  score     Decimal? @db.Decimal
+  latencyMs Int      @default(0) @map("latency_ms")
+  details   Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  query     Query    @relation(fields: [queryId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  chunk     Chunk?   @relation(fields: [chunkId], references: [id], onDelete: SetNull)
+  @@index([queryId, createdAt])
+  @@map("query_traces")
+}
+
+model Feedback {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  queryId   String   @unique @map("query_id") @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  rating    Int
+  note      String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  query     Query    @relation(fields: [queryId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  @@map("feedback")
+}
+
+model Connector {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  name         String
+  type         String
+  config       Json
+  lastSyncedAt DateTime? @map("last_synced_at") @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  @@index([tenantId, createdAt])
+  @@map("connectors")
+}
+
+model Ticket {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  queryId   String?  @map("query_id") @db.Uuid
+  summary   String
+  priority  String
+  status    String   @default("open")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  @@index([tenantId, createdAt])
+  @@map("tickets")
+}
+
+model SemanticCache {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  question  String
+  answer    String
+  citations Json     @default("[]")
+  embedding Unsupported("vector(384)")?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  @@map("semantic_cache")
+}
