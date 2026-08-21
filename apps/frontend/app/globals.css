@@ -202,3 +202,41 @@ input {
     grid-template-columns: 1fr 1fr;
   }
 }
+.trace-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.8fr) 1.4fr;
+  gap: 18px;
+}
+.trace-row {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+.trace-row small {
+  display: block;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.trace-stage {
+  border-top: 1px solid var(--line);
+  padding: 14px 0;
+}
+.trace-stage span,
+.trace-stage small {
+  display: block;
+  color: var(--muted);
+  margin-top: 5px;
+}
+.trace-stage p {
+  margin: 8px 0;
+}
+@media (max-width: 700px) {
+  .trace-grid {
+    grid-template-columns: 1fr;
+  }
+}
