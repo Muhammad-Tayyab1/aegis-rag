@@ -1,19 +1,25 @@
 "use client";
+
 import { useEffect, useState } from "react";
-export default function Usage() {
-  const [u, setU] = useState<any>();
+
+type Usage = { queries: number; tokens: number; cost: string | number };
+
+export default function UsagePage() {
+  const [usage, setUsage] = useState<Usage>();
+  const [error, setError] = useState("");
+
   useEffect(() => {
-    fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api"}/usage`,
-      {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("aegis.accessToken") ?? ""}`,
-        },
-      },
-    )
-      .then((r) => r.json())
-      .then(setU);
+    const api = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
+    const token = localStorage.getItem("aegis.accessToken") ?? "";
+    fetch(`${api}/usage`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Unable to load usage data");
+        return response.json();
+      })
+      .then(setUsage)
+      .catch((cause: Error) => setError(cause.message));
   }, []);
+
   return (
     <main className="dashboard">
       <aside>
@@ -24,30 +30,35 @@ export default function Usage() {
           <a href="/dashboard">Overview</a>
           <a href="/documents">Documents</a>
           <a href="/chat">Chat</a>
+          <a href="/traces">Traces</a>
           <a href="/usage">Usage</a>
         </nav>
       </aside>
       <section>
         <div className="eyebrow">TENANT METERING</div>
         <h1>Usage</h1>
-        <div className="metrics">
-          <article>
-            <small>Queries</small>
-            <strong>{u?.queries ?? "—"}</strong>
-          </article>
-          <article>
-            <small>Tokens</small>
-            <strong>{u?.tokens ?? "—"}</strong>
-          </article>
-          <article>
-            <small>Estimated cost</small>
-            <strong>${Number(u?.cost ?? 0).toFixed(4)}</strong>
-          </article>
-        </div>
+        {error ? (
+          <p className="error">{error}</p>
+        ) : (
+          <div className="metrics">
+            <article>
+              <small>Total queries</small>
+              <strong>{usage?.queries ?? "—"}</strong>
+            </article>
+            <article>
+              <small>Tokens used</small>
+              <strong>{usage?.tokens?.toLocaleString() ?? "—"}</strong>
+            </article>
+            <article>
+              <small>Estimated cost</small>
+              <strong>${Number(usage?.cost ?? 0).toFixed(4)}</strong>
+            </article>
+          </div>
+        )}
         <div className="empty">
-          <h2>Metering is active</h2>
+          <h2>Cost-aware retrieval</h2>
           <p>
-            Usage is scoped to this tenant and can optionally notify a billing
+            Usage is isolated per tenant and can trigger the optional billing
             webhook when the configured threshold is reached.
           </p>
         </div>
