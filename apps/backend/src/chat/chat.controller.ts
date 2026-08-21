@@ -37,9 +37,13 @@ export class ChatController {
         `${b.question} detailed policy procedure`,
       );
     }
-    const answer = cached
+    const ticketMatch = b.question.match(
+      /(?:file|create|open)\s+(?:a\s+)?(?:bug|ticket)(?:\s+for)?\s+(.+)/i,
+    );
+    let answer = cached
       ? cached.answer
       : await this.llm.answer(b.question, hits);
+    if (ticketMatch) answer = `Ticket created: ${ticketMatch[1]}`;
     return this.p.withTenant(u.tenantId, async (tx) => {
       const q = await tx.query.create({
         data: {
@@ -50,6 +54,27 @@ export class ChatController {
           tokensUsed: Math.ceil(answer.length / 4),
         },
       });
+      if (ticketMatch) {
+        const ticket = await tx.ticket.create({
+          data: {
+            tenantId: u.tenantId,
+            queryId: q.id,
+            summary: ticketMatch[1],
+            priority: /urgent|critical|high/i.test(b.question)
+              ? "high"
+              : "medium",
+          },
+        });
+        await tx.queryTrace.create({
+          data: {
+            tenantId: u.tenantId,
+            queryId: q.id,
+            stage: "tool:create_ticket",
+            latencyMs: 0,
+            details: { ticketId: ticket.id, priority: ticket.priority },
+          },
+        });
+      }
       if (rerouted)
         await tx.queryTrace.create({
           data: {
@@ -72,7 +97,7 @@ export class ChatController {
           details: { filename: h.filename },
         })),
       });
-      if (!cached)
+      if (!cached && !ticketMatch)
         await tx.semanticCache.create({
           data: {
             tenantId: u.tenantId,
