@@ -13,11 +13,24 @@ export class UsageController {
         _sum: { tokensUsed: true, estimatedCostUsd: true },
         _count: true,
       });
-      return {
+      const usage = {
         queries: a._count,
         tokens: a._sum.tokensUsed ?? 0,
         cost: a._sum.estimatedCostUsd ?? 0,
       };
+      const threshold = Number(process.env.BILLING_QUERY_THRESHOLD ?? 0);
+      if (
+        threshold > 0 &&
+        usage.queries >= threshold &&
+        process.env.BILLING_WEBHOOK_URL
+      ) {
+        await fetch(process.env.BILLING_WEBHOOK_URL, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ tenantId: u.tenantId, usage }),
+        }).catch(() => undefined);
+      }
+      return usage;
     });
   }
 }
