@@ -21,6 +21,12 @@ services:
       JWT_SECRET: "${JWT_SECRET:-development-only-change-me}"
       API_PORT: 4000
     ports: ["4000:4000"]
+    command:
+      [
+        "sh",
+        "-c",
+        "npx prisma migrate deploy --schema apps/backend/prisma/schema.prisma && npm run start --workspace=@aegis-rag/backend",
+      ]
     depends_on: { postgres: { condition: service_healthy } }
   frontend:
     build: { context: ., dockerfile: apps/frontend/Dockerfile }

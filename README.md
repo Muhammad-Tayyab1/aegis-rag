@@ -63,6 +63,8 @@ npm run dev
 
 Open `http://localhost:3000`. The API runs at `http://localhost:4000/api`.
 
+For a complete containerized startup, use `docker compose up --build`; the backend applies Prisma migrations automatically before starting.
+
 ## Useful endpoints
 
 | Endpoint                      | Purpose                                              |
