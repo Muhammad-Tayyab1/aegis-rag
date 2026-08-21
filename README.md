@@ -29,14 +29,26 @@ Naive RAG systems fail silently: they retrieve weak context, answer confidently,
 
 ## Architecture
 
-```text
-Next.js workspace  →  NestJS API  →  Prisma  →  PostgreSQL + pgvector
-                         │               │
-                         ├─ JWT auth      ├─ RLS tenant boundary
-                         ├─ ingestion     ├─ document/chunk storage
-                         ├─ hybrid search ├─ vector + tsvector indexes
-                         └─ traces        └─ queries, feedback, usage
+```mermaid
+flowchart LR
+  U[Hospital or business user] --> W[Next.js workspace]
+  W --> A[NestJS API]
+  A --> AUTH[JWT tenant auth]
+  A --> I[Ingestion and connectors]
+  A --> R[Hybrid retrieval and reranking]
+  A --> C[Streaming chat and tools]
+  I --> P[(PostgreSQL + pgvector)]
+  R --> P
+  C --> P
+  P --> T[Trace, usage, feedback, and tickets]
+  AUTH --> RLS[Row-level tenant isolation]
 ```
+
+## Example: hospital policy operations
+
+A hospital uploads clinical operations manuals, HR policies, and incident-response procedures. A staff member searches for an exact policy identifier such as `IPC-104`. Semantic search alone may overlook that identifier; PostgreSQL full-text search catches it, reciprocal-rank fusion combines it with conceptually relevant passages, and reranking promotes the strongest evidence. The answer includes source snippets, while an administrator can inspect the full trace to see the retrieved chunks, scores, reroute events, and latency. If the user asks to file an incident-related bug, Aegis creates a tenant ticket and records the tool action.
+
+This example demonstrates the intended workflow, not regulatory certification. A real hospital deployment still requires organizational security, privacy, retention, and compliance review.
 
 ## Stack
 
