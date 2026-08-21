@@ -49,6 +49,15 @@ export class IngestionController {
       throw new BadRequestException(
         "Supported formats: PDF, DOCX, TXT, MD, CSV, JSON",
       );
+    if (
+      /ignore\s+(all|previous)\s+instructions|system\s+prompt|reveal\s+(your|the)\s+prompt/i.test(
+        content,
+      )
+    ) {
+      throw new BadRequestException(
+        "Document contains a blocked prompt-injection pattern",
+      );
+    }
     return this.s.ingest(u.tenantId, f.originalname, content, "file");
   }
 }
