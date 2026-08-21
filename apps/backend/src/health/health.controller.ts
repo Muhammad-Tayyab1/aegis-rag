@@ -1,11 +1,11 @@
-import {Controller, Get} from '@nestjs/common'
-import {PrismaService} from '../common/database/prisma.service'
+import { Controller, Get } from "@nestjs/common";
+import { PrismaService } from "../common/database/prisma.service";
 
-@Controller('health')
+@Controller("health")
 export class HealthController {
-	constructor(private readonly database: PrismaService) {}
-	@Get() async check() {
-		await this.database.$queryRaw`SELECT 1`
-		return {status: 'ok'}
-	}
+  constructor(private readonly database: PrismaService) {}
+  @Get() async check() {
+    await this.database.$queryRaw`SELECT 1`;
+    return { status: "ok" };
+  }
 }

@@ -65,15 +65,15 @@ Open `http://localhost:3000`. The API runs at `http://localhost:4000/api`.
 
 ## Useful endpoints
 
-| Endpoint | Purpose |
-| --- | --- |
-| `POST /api/auth/register` | Create a member in a seeded tenant workspace |
-| `POST /api/auth/login` | Receive a JWT access token |
-| `POST /api/documents/upload` | Ingest a supported document (`multipart/form-data`) |
-| `POST /api/chat` | Retrieve context and return an answer with citations |
-| `GET /api/traces` | Inspect prior retrieval traces |
-| `POST /api/feedback/:queryId` | Record thumbs up/down feedback |
-| `GET /api/usage` | View tenant query/token aggregates |
+| Endpoint                      | Purpose                                              |
+| ----------------------------- | ---------------------------------------------------- |
+| `POST /api/auth/register`     | Create a member in a seeded tenant workspace         |
+| `POST /api/auth/login`        | Receive a JWT access token                           |
+| `POST /api/documents/upload`  | Ingest a supported document (`multipart/form-data`)  |
+| `POST /api/chat`              | Retrieve context and return an answer with citations |
+| `GET /api/traces`             | Inspect prior retrieval traces                       |
+| `POST /api/feedback/:queryId` | Record thumbs up/down feedback                       |
+| `GET /api/usage`              | View tenant query/token aggregates                   |
 
 Authenticated endpoints require `Authorization: Bearer <token>`.
 

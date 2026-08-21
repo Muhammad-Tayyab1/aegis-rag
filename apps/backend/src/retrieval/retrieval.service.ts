@@ -1,3 +1,87 @@
-import {Injectable} from '@nestjs/common';import{Prisma}from'@prisma/client';import{PrismaService}from'../common/database/prisma.service';
-export type Hit={id:string;documentId:string;filename:string;content:string;score:number;rank?:number};export const embed=(text:string)=>{const v=Array(384).fill(0);for(let i=0;i<text.length;i++)v[(text.charCodeAt(i)*31+i)%384]+=(text.charCodeAt(i)%17)/17;const n=Math.hypot(...v)||1;return v.map(x=>x/n)};
-@Injectable()export class RetrievalService{constructor(private prisma:PrismaService){}async rerank(q:string,hits:Hit[]){const key=process.env.COHERE_API_KEY;if(key)try{const r=await fetch('https://api.cohere.com/v2/rerank',{method:'POST',headers:{'content-type':'application/json',Authorization:`Bearer ${key}`},body:JSON.stringify({model:process.env.COHERE_RERANK_MODEL??'rerank-v3.5',query:q,documents:hits.map(h=>h.content),top_n:hits.length})});if(r.ok){const b=await r.json() as any;return(b.results??[]).map((x:any)=>({...hits[x.index],score:x.relevance_score,rank:x.index+1}))}}catch{}const terms=q.toLowerCase().split(/\W+/).filter(Boolean);return hits.map(h=>({...h,score:h.score+terms.filter(t=>h.content.toLowerCase().includes(t)).length*.1})).sort((a,b)=>b.score-a.score).map((h,i)=>({...h,rank:i+1}))}async search(t:string,q:string,limit=8):Promise<Hit[]>{const e=`[${embed(q).join(',')}]`;return this.prisma.withTenant(t,async tx=>{const [v,k]=await Promise.all([tx.$queryRaw<Hit[]>(Prisma.sql`SELECT c.id,c.document_id AS "documentId",d.filename,c.content,(1-(c.embedding <=> ${e}::vector))::float AS score FROM chunks c JOIN documents d ON d.id=c.document_id WHERE c.embedding IS NOT NULL ORDER BY c.embedding <=> ${e}::vector LIMIT ${limit}`),tx.$queryRaw<Hit[]>(Prisma.sql`SELECT c.id,c.document_id AS "documentId",d.filename,c.content,ts_rank_cd(c.tsv,websearch_to_tsquery('english',${q}))::float AS score FROM chunks c JOIN documents d ON d.id=c.document_id WHERE c.tsv @@ websearch_to_tsquery('english',${q}) ORDER BY score DESC LIMIT ${limit}`)]);const m=new Map<string,{h:Hit;s:number}>();[v,k].forEach(a=>a.forEach((h,i)=>{const x=m.get(h.id)??{h,s:0};x.s+=1/(61+i);m.set(h.id,x)}));return this.rerank(q,[...m.values()].sort((a,b)=>b.s-a.s).slice(0,limit).map((x,i)=>({...x.h,score:x.s,rank:i+1})))})}}
+import { Injectable } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
+import { PrismaService } from "../common/database/prisma.service";
+export type Hit = {
+  id: string;
+  documentId: string;
+  filename: string;
+  content: string;
+  score: number;
+  rank?: number;
+};
+export const embed = (text: string) => {
+  const v = Array(384).fill(0);
+  for (let i = 0; i < text.length; i++)
+    v[(text.charCodeAt(i) * 31 + i) % 384] += (text.charCodeAt(i) % 17) / 17;
+  const n = Math.hypot(...v) || 1;
+  return v.map((x) => x / n);
+};
+@Injectable()
+export class RetrievalService {
+  constructor(private prisma: PrismaService) {}
+  async rerank(q: string, hits: Hit[]) {
+    const key = process.env.COHERE_API_KEY;
+    if (key)
+      try {
+        const r = await fetch("https://api.cohere.com/v2/rerank", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer ${key}`,
+          },
+          body: JSON.stringify({
+            model: process.env.COHERE_RERANK_MODEL ?? "rerank-v3.5",
+            query: q,
+            documents: hits.map((h) => h.content),
+            top_n: hits.length,
+          }),
+        });
+        if (r.ok) {
+          const b = (await r.json()) as any;
+          return (b.results ?? []).map((x: any) => ({
+            ...hits[x.index],
+            score: x.relevance_score,
+            rank: x.index + 1,
+          }));
+        }
+      } catch {}
+    const terms = q.toLowerCase().split(/\W+/).filter(Boolean);
+    return hits
+      .map((h) => ({
+        ...h,
+        score:
+          h.score +
+          terms.filter((t) => h.content.toLowerCase().includes(t)).length * 0.1,
+      }))
+      .sort((a, b) => b.score - a.score)
+      .map((h, i) => ({ ...h, rank: i + 1 }));
+  }
+  async search(t: string, q: string, limit = 8): Promise<Hit[]> {
+    const e = `[${embed(q).join(",")}]`;
+    return this.prisma.withTenant(t, async (tx) => {
+      const [v, k] = await Promise.all([
+        tx.$queryRaw<Hit[]>(
+          Prisma.sql`SELECT c.id,c.document_id AS "documentId",d.filename,c.content,(1-(c.embedding <=> ${e}::vector))::float AS score FROM chunks c JOIN documents d ON d.id=c.document_id WHERE c.embedding IS NOT NULL ORDER BY c.embedding <=> ${e}::vector LIMIT ${limit}`,
+        ),
+        tx.$queryRaw<Hit[]>(
+          Prisma.sql`SELECT c.id,c.document_id AS "documentId",d.filename,c.content,ts_rank_cd(c.tsv,websearch_to_tsquery('english',${q}))::float AS score FROM chunks c JOIN documents d ON d.id=c.document_id WHERE c.tsv @@ websearch_to_tsquery('english',${q}) ORDER BY score DESC LIMIT ${limit}`,
+        ),
+      ]);
+      const m = new Map<string, { h: Hit; s: number }>();
+      [v, k].forEach((a) =>
+        a.forEach((h, i) => {
+          const x = m.get(h.id) ?? { h, s: 0 };
+          x.s += 1 / (61 + i);
+          m.set(h.id, x);
+        }),
+      );
+      return this.rerank(
+        q,
+        [...m.values()]
+          .sort((a, b) => b.s - a.s)
+          .slice(0, limit)
+          .map((x, i) => ({ ...x.h, score: x.s, rank: i + 1 })),
+      );
+    });
+  }
+}
