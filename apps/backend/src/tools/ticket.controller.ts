@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { IsIn, IsString, MinLength } from "class-validator";
 import { PrismaService } from "../common/database/prisma.service";
@@ -12,6 +12,11 @@ class TicketInput {
 @Controller("tools")
 export class TicketController {
   constructor(private readonly prisma: PrismaService) {}
+  @Get("tickets") list(@CurrentUser() user: AuthenticatedUser) {
+    return this.prisma.withTenant(user.tenantId, (tx) =>
+      tx.ticket.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
+    );
+  }
   @Post("create-ticket") create(
     @Body() b: TicketInput,
     @CurrentUser() u: AuthenticatedUser,
