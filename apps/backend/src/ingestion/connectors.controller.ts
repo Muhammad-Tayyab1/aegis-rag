@@ -7,12 +7,13 @@ import { CurrentUser } from "../common/tenant/current-user.decorator";
 import { AuthenticatedUser } from "../common/tenant/tenant.types";
 import { PrismaService } from "../common/database/prisma.service";
 import { IngestionService } from "./ingestion.service";
+import { TenantRateLimitGuard } from "../common/tenant/tenant-rate-limit.guard";
 class CreateConnector {
   @IsString() name!: string;
   @IsIn(["rest", "postgres"]) type!: string;
   @IsObject() config!: Record<string, string>;
 }
-@UseGuards(AuthGuard("jwt"))
+@UseGuards(AuthGuard("jwt"), TenantRateLimitGuard)
 @Controller("connectors")
 export class ConnectorsController {
   constructor(

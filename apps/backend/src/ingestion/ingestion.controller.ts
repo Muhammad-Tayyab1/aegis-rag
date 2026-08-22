@@ -16,7 +16,8 @@ import mammoth from "mammoth";
 import { CurrentUser } from "../common/tenant/current-user.decorator";
 import { AuthenticatedUser } from "../common/tenant/tenant.types";
 import { IngestionService } from "./ingestion.service";
-@UseGuards(AuthGuard("jwt"))
+import { TenantRateLimitGuard } from "../common/tenant/tenant-rate-limit.guard";
+@UseGuards(AuthGuard("jwt"), TenantRateLimitGuard)
 @Controller("documents")
 export class IngestionController {
   constructor(private readonly s: IngestionService) {}

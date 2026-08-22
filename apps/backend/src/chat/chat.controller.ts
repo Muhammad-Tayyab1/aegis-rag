@@ -7,10 +7,11 @@ import { AuthenticatedUser } from "../common/tenant/tenant.types";
 import { PrismaService } from "../common/database/prisma.service";
 import { RetrievalService } from "../retrieval/retrieval.service";
 import { LlmService } from "./llm.service";
+import { TenantRateLimitGuard } from "../common/tenant/tenant-rate-limit.guard";
 class Ask {
   @IsString() question!: string;
 }
-@UseGuards(AuthGuard("jwt"))
+@UseGuards(AuthGuard("jwt"), TenantRateLimitGuard)
 @Controller("chat")
 export class ChatController {
   constructor(
