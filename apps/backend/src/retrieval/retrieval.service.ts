@@ -59,13 +59,21 @@ export class RetrievalService {
   async search(t: string, q: string, limit = 8): Promise<Hit[]> {
     const e = `[${embed(q).join(",")}]`;
     return this.prisma.withTenant(t, async (tx) => {
+      const config = await tx.tenantConfig.findUnique({
+        where: { tenantId: t },
+      });
+      const strategy = config?.retrievalStrategy ?? "hybrid";
       const [v, k] = await Promise.all([
-        tx.$queryRaw<Hit[]>(
-          Prisma.sql`SELECT c.id,c.document_id AS "documentId",d.filename,c.content,(1-(c.embedding <=> ${e}::vector))::float AS score FROM chunks c JOIN documents d ON d.id=c.document_id WHERE c.embedding IS NOT NULL ORDER BY c.embedding <=> ${e}::vector LIMIT ${limit}`,
-        ),
-        tx.$queryRaw<Hit[]>(
-          Prisma.sql`SELECT c.id,c.document_id AS "documentId",d.filename,c.content,ts_rank_cd(c.tsv,websearch_to_tsquery('english',${q}))::float AS score FROM chunks c JOIN documents d ON d.id=c.document_id WHERE c.tsv @@ websearch_to_tsquery('english',${q}) ORDER BY score DESC LIMIT ${limit}`,
-        ),
+        strategy === "keyword"
+          ? Promise.resolve([] as Hit[])
+          : tx.$queryRaw<Hit[]>(
+              Prisma.sql`SELECT c.id,c.document_id AS "documentId",d.filename,c.content,(1-(c.embedding <=> ${e}::vector))::float AS score FROM chunks c JOIN documents d ON d.id=c.document_id WHERE c.embedding IS NOT NULL ORDER BY c.embedding <=> ${e}::vector LIMIT ${limit}`,
+            ),
+        strategy === "vector"
+          ? Promise.resolve([] as Hit[])
+          : tx.$queryRaw<Hit[]>(
+              Prisma.sql`SELECT c.id,c.document_id AS "documentId",d.filename,c.content,ts_rank_cd(c.tsv,websearch_to_tsquery('english',${q}))::float AS score FROM chunks c JOIN documents d ON d.id=c.document_id WHERE c.tsv @@ websearch_to_tsquery('english',${q}) ORDER BY score DESC LIMIT ${limit}`,
+            ),
       ]);
       const m = new Map<string, { h: Hit; s: number }>();
       [v, k].forEach((a) =>
@@ -75,13 +83,11 @@ export class RetrievalService {
           m.set(h.id, x);
         }),
       );
-      return this.rerank(
-        q,
-        [...m.values()]
-          .sort((a, b) => b.s - a.s)
-          .slice(0, limit)
-          .map((x, i) => ({ ...x.h, score: x.s, rank: i + 1 })),
-      );
+      const fused = [...m.values()]
+        .sort((a, b) => b.s - a.s)
+        .slice(0, limit)
+        .map((x, i) => ({ ...x.h, score: x.s, rank: i + 1 }));
+      return config?.rerankEnabled === false ? fused : this.rerank(q, fused);
     });
   }
 }
