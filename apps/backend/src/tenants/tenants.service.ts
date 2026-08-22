@@ -25,4 +25,21 @@ export class TenantsService {
       };
     });
   }
+  updateConfig(
+    tenantId: string,
+    data: {
+      chunkSize?: number;
+      chunkOverlap?: number;
+      embeddingModel?: string;
+      retrievalStrategy?: string;
+      rerankEnabled?: boolean;
+    },
+  ) {
+    return this.prisma.withTenant(tenantId, (tx) =>
+      tx.tenantConfig.update({
+        where: { tenantId },
+        data: { ...data, updatedAt: new Date() },
+      }),
+    );
+  }
 }
