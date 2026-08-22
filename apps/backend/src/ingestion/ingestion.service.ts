@@ -40,6 +40,9 @@ export class IngestionService {
     sourceUri?: string,
   ) {
     return this.prisma.withTenant(tenantId, async (tx) => {
+      const config = await tx.tenantConfig.findUnique({ where: { tenantId } });
+      const chunkSize = config?.chunkSize ?? 800;
+      const chunkOverlap = Math.min(config?.chunkOverlap ?? 100, chunkSize - 1);
       await tx.document.deleteMany({ where: { tenantId, filename } });
       const doc = await tx.document.create({
         data: {
@@ -50,7 +53,11 @@ export class IngestionService {
           status: "processing",
         },
       });
-      for (const [ordinal, text] of this.chunk(content).entries()) {
+      for (const [ordinal, text] of this.chunk(
+        content,
+        chunkSize,
+        chunkOverlap,
+      ).entries()) {
         const vector = `[${embed(text).join(",")}]`;
         await tx.$executeRaw(
           Prisma.sql`INSERT INTO chunks (document_id,tenant_id,ordinal,content,embedding) VALUES (${doc.id}::uuid,${tenantId}::uuid,${ordinal},${text},${vector}::vector)`,
