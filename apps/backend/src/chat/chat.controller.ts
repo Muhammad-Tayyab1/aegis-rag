@@ -86,16 +86,18 @@ export class ChatController {
           },
         });
       await tx.queryTrace.createMany({
-        data: hits.map((h) => ({
-          tenantId: u.tenantId,
-          queryId: q.id,
-          stage: "rerank",
-          chunkId: h.id,
-          rank: h.rank,
-          score: h.score,
-          latencyMs: 0,
-          details: { filename: h.filename },
-        })),
+        data: hits.flatMap((h) =>
+          [...(h.stages ?? ["fusion"]), "rerank"].map((stage) => ({
+            tenantId: u.tenantId,
+            queryId: q.id,
+            stage,
+            chunkId: h.id,
+            rank: h.rank,
+            score: h.score,
+            latencyMs: 0,
+            details: { filename: h.filename },
+          })),
+        ),
       });
       if (!cached && !ticketMatch)
         await tx.semanticCache.create({

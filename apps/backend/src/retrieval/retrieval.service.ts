@@ -8,6 +8,7 @@ export type Hit = {
   content: string;
   score: number;
   rank?: number;
+  stages?: string[];
 };
 export const embed = (text: string) => {
   const v = Array(384).fill(0);
@@ -75,18 +76,24 @@ export class RetrievalService {
               Prisma.sql`SELECT c.id,c.document_id AS "documentId",d.filename,c.content,ts_rank_cd(c.tsv,websearch_to_tsquery('english',${q}))::float AS score FROM chunks c JOIN documents d ON d.id=c.document_id WHERE c.tsv @@ websearch_to_tsquery('english',${q}) ORDER BY score DESC LIMIT ${limit}`,
             ),
       ]);
-      const m = new Map<string, { h: Hit; s: number }>();
-      [v, k].forEach((a) =>
+      const m = new Map<string, { h: Hit; s: number; stages: Set<string> }>();
+      [v, k].forEach((a, sourceIndex) =>
         a.forEach((h, i) => {
-          const x = m.get(h.id) ?? { h, s: 0 };
+          const x = m.get(h.id) ?? { h, s: 0, stages: new Set<string>() };
           x.s += 1 / (61 + i);
+          x.stages.add(sourceIndex === 0 ? "vector" : "keyword");
           m.set(h.id, x);
         }),
       );
       const fused = [...m.values()]
         .sort((a, b) => b.s - a.s)
         .slice(0, limit)
-        .map((x, i) => ({ ...x.h, score: x.s, rank: i + 1 }));
+        .map((x, i) => ({
+          ...x.h,
+          score: x.s,
+          rank: i + 1,
+          stages: [...x.stages, "fusion"],
+        }));
       return config?.rerankEnabled === false ? fused : this.rerank(q, fused);
     });
   }
