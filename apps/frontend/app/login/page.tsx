@@ -24,6 +24,7 @@ export default function LoginPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.message ?? "Unable to sign in");
       localStorage.setItem("aegis.accessToken", data.accessToken);
+      localStorage.setItem("aegis.refreshToken", data.refreshToken);
       router.push("/dashboard");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to sign in");

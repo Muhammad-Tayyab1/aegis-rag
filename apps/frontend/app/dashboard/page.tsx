@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { apiFetch } from "../../lib/api";
 type Tenant = {
   name: string;
   slug: string;
@@ -18,10 +19,7 @@ export default function DashboardPage() {
       location.assign("/login");
       return;
     }
-    fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api"}/tenants/me`,
-      { headers: { Authorization: `Bearer ${token}` } },
-    )
+    apiFetch("/tenants/me")
       .then(async (r) => {
         if (!r.ok) throw new Error("Your session has expired.");
         return r.json();
