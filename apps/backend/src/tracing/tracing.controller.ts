@@ -1,9 +1,12 @@
 import { Controller, Get, Param, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
+import { Roles } from "../auth/roles.decorator";
+import { RolesGuard } from "../auth/roles.guard";
 import { CurrentUser } from "../common/tenant/current-user.decorator";
 import { AuthenticatedUser } from "../common/tenant/tenant.types";
 import { PrismaService } from "../common/database/prisma.service";
-@UseGuards(AuthGuard("jwt"))
+@Roles("admin")
+@UseGuards(AuthGuard("jwt"), RolesGuard)
 @Controller("traces")
 export class TracingController {
   constructor(private p: PrismaService) {}
