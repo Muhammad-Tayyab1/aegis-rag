@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { IsIn, IsObject, IsString } from "class-validator";
 import { Client } from "pg";
+import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { CurrentUser } from "../common/tenant/current-user.decorator";
 import { AuthenticatedUser } from "../common/tenant/tenant.types";
 import { PrismaService } from "../common/database/prisma.service";
@@ -18,6 +19,36 @@ export class ConnectorsController {
     private p: PrismaService,
     private i: IngestionService,
   ) {}
+  private key() {
+    const value = process.env.CONNECTOR_ENCRYPTION_KEY;
+    if (!value || !/^[a-f0-9]{64}$/i.test(value))
+      throw new Error(
+        "CONNECTOR_ENCRYPTION_KEY must be 32 bytes encoded as hex",
+      );
+    return Buffer.from(value, "hex");
+  }
+  private encrypt(value: string) {
+    const iv = randomBytes(12);
+    const cipher = createCipheriv("aes-256-gcm", this.key(), iv);
+    const encrypted = Buffer.concat([
+      cipher.update(value, "utf8"),
+      cipher.final(),
+    ]);
+    return [iv, cipher.getAuthTag(), encrypted]
+      .map((x) => x.toString("base64"))
+      .join(".");
+  }
+  private decrypt(value: string) {
+    const [iv, tag, encrypted] = value
+      .split(".")
+      .map((x) => Buffer.from(x, "base64"));
+    const decipher = createDecipheriv("aes-256-gcm", this.key(), iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([
+      decipher.update(encrypted),
+      decipher.final(),
+    ]).toString("utf8");
+  }
   @Get() list(@CurrentUser() u: AuthenticatedUser) {
     return this.p.withTenant(u.tenantId, (tx) =>
       tx.connector.findMany({
@@ -36,13 +67,16 @@ export class ConnectorsController {
     @Body() b: CreateConnector,
     @CurrentUser() u: AuthenticatedUser,
   ) {
+    const config = { ...b.config };
+    if (b.type === "postgres" && config.connectionString)
+      config.connectionString = this.encrypt(config.connectionString);
     return this.p.withTenant(u.tenantId, (tx) =>
       tx.connector.create({
         data: {
           tenantId: u.tenantId,
           name: b.name,
           type: b.type,
-          config: b.config,
+          config,
         },
       }),
     );
@@ -73,7 +107,7 @@ export class ConnectorsController {
           "Postgres connector requires one read-only SELECT query",
         );
       const db = new Client({
-        connectionString: cfg.connectionString,
+        connectionString: this.decrypt(cfg.connectionString),
         statement_timeout: 10000,
       });
       await db.connect();
