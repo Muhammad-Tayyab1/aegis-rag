@@ -56,6 +56,7 @@ model User {
   tenantId     String   @map("tenant_id") @db.Uuid
   email        String   @unique
   passwordHash String   @map("password_hash")
+  refreshTokenHash String? @map("refresh_token_hash")
   role         UserRole @default(member)
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)

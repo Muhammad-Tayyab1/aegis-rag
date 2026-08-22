@@ -9,3 +9,6 @@ export class RegisterDto {
   @IsString() @MinLength(12) password!: string;
   @IsString() @Matches(/^[a-z0-9-]+$/) tenantSlug!: string;
 }
+export class RefreshDto {
+  @IsString() refreshToken!: string;
+}

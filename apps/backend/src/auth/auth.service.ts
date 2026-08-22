@@ -44,7 +44,26 @@ export class AuthService {
       throw new UnauthorizedException("Invalid email or password");
     return this.issue(user);
   }
-  private issue(user: {
+  async refresh(token: string) {
+    try {
+      const payload = this.jwt.verify<
+        AuthenticatedUser & { tokenType: string }
+      >(token);
+      if (payload.tokenType !== "refresh") throw new Error();
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.id },
+      });
+      if (
+        !user?.refreshTokenHash ||
+        !(await argon2.verify(user.refreshTokenHash, token))
+      )
+        throw new Error();
+      return this.issue(user);
+    } catch {
+      throw new UnauthorizedException("Invalid refresh token");
+    }
+  }
+  private async issue(user: {
     id: string;
     tenantId: string;
     email: string;
@@ -56,6 +75,15 @@ export class AuthService {
       email: user.email,
       role: user.role as AuthenticatedUser["role"],
     };
-    return { accessToken: this.jwt.sign(payload), user: payload };
+    const accessToken = this.jwt.sign({ ...payload, tokenType: "access" });
+    const refreshToken = this.jwt.sign(
+      { ...payload, tokenType: "refresh" },
+      { expiresIn: "7d" },
+    );
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { refreshTokenHash: await argon2.hash(refreshToken) },
+    });
+    return { accessToken, refreshToken, user: payload };
   }
 }
