@@ -5,11 +5,15 @@ export default function Chat() {
   const [a, setA] = useState("");
   const [c, setC] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
+  const [queryId, setQueryId] = useState("");
+  const [rated, setRated] = useState(false);
   async function ask(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setA("");
     setC([]);
+    setQueryId("");
+    setRated(false);
     const r = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api"}/chat/stream`,
       {
@@ -36,10 +40,27 @@ export default function Chat() {
         if (!line) continue;
         const data = JSON.parse(line.slice(5));
         if (event.includes("token")) setA((v) => v + data.token);
-        if (event.includes("citations")) setC(data.citations);
+        if (event.includes("citations")) {
+          setC(data.citations);
+          setQueryId(data.queryId);
+        }
       }
     }
     setBusy(false);
+  }
+  async function rate(rating: 1 | -1) {
+    await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api"}/feedback/${queryId}`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("aegis.accessToken") ?? ""}`,
+        },
+        body: JSON.stringify({ rating }),
+      },
+    );
+    setRated(true);
   }
   return (
     <main className="dashboard">
@@ -70,6 +91,18 @@ export default function Chat() {
         </form>
         <div className="empty">
           <p>{a || "Answers will stream here with retrieval citations."}</p>
+          {queryId && (
+            <p>
+              {rated ? (
+                "Thanks for the feedback."
+              ) : (
+                <>
+                  <button onClick={() => rate(1)}>👍 Helpful</button>{" "}
+                  <button onClick={() => rate(-1)}>👎 Needs work</button>
+                </>
+              )}
+            </p>
+          )}
           {c.map((x) => (
             <article className="trace-stage" key={x.chunkId}>
               <strong>{x.document}</strong>
