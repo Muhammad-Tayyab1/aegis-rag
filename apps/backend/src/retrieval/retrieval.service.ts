@@ -9,6 +9,7 @@ export type Hit = {
   score: number;
   rank?: number;
   stages?: string[];
+  stageLatencies?: Record<string, number>;
 };
 export const embed = (text: string) => {
   const v = Array(384).fill(0);
@@ -64,18 +65,30 @@ export class RetrievalService {
         where: { tenantId: t },
       });
       const strategy = config?.retrievalStrategy ?? "hybrid";
-      const [v, k] = await Promise.all([
-        strategy === "keyword"
-          ? Promise.resolve([] as Hit[])
-          : tx.$queryRaw<Hit[]>(
-              Prisma.sql`SELECT c.id,c.document_id AS "documentId",d.filename,c.content,(1-(c.embedding <=> ${e}::vector))::float AS score FROM chunks c JOIN documents d ON d.id=c.document_id WHERE c.embedding IS NOT NULL ORDER BY c.embedding <=> ${e}::vector LIMIT ${limit}`,
-            ),
-        strategy === "vector"
-          ? Promise.resolve([] as Hit[])
-          : tx.$queryRaw<Hit[]>(
-              Prisma.sql`SELECT c.id,c.document_id AS "documentId",d.filename,c.content,ts_rank_cd(c.tsv,websearch_to_tsquery('english',${q}))::float AS score FROM chunks c JOIN documents d ON d.id=c.document_id WHERE c.tsv @@ websearch_to_tsquery('english',${q}) ORDER BY score DESC LIMIT ${limit}`,
-            ),
+      const timed = async (run: Promise<Hit[]>) => {
+        const started = performance.now();
+        const rows = await run;
+        return { rows, ms: Math.round(performance.now() - started) };
+      };
+      const [vectorResult, keywordResult] = await Promise.all([
+        timed(
+          strategy === "keyword"
+            ? Promise.resolve([] as Hit[])
+            : tx.$queryRaw<Hit[]>(
+                Prisma.sql`SELECT c.id,c.document_id AS "documentId",d.filename,c.content,(1-(c.embedding <=> ${e}::vector))::float AS score FROM chunks c JOIN documents d ON d.id=c.document_id WHERE c.embedding IS NOT NULL ORDER BY c.embedding <=> ${e}::vector LIMIT ${limit}`,
+              ),
+        ),
+        timed(
+          strategy === "vector"
+            ? Promise.resolve([] as Hit[])
+            : tx.$queryRaw<Hit[]>(
+                Prisma.sql`SELECT c.id,c.document_id AS "documentId",d.filename,c.content,ts_rank_cd(c.tsv,websearch_to_tsquery('english',${q}))::float AS score FROM chunks c JOIN documents d ON d.id=c.document_id WHERE c.tsv @@ websearch_to_tsquery('english',${q}) ORDER BY score DESC LIMIT ${limit}`,
+              ),
+        ),
       ]);
+      const v = vectorResult.rows,
+        k = keywordResult.rows;
+      const fusionStarted = performance.now();
       const m = new Map<string, { h: Hit; s: number; stages: Set<string> }>();
       [v, k].forEach((a, sourceIndex) =>
         a.forEach((h, i) => {
@@ -93,8 +106,20 @@ export class RetrievalService {
           score: x.s,
           rank: i + 1,
           stages: [...x.stages, "fusion"],
+          stageLatencies: {
+            vector: vectorResult.ms,
+            keyword: keywordResult.ms,
+            fusion: Math.round(performance.now() - fusionStarted),
+          },
         }));
-      return config?.rerankEnabled === false ? fused : this.rerank(q, fused);
+      if (config?.rerankEnabled === false) return fused;
+      const rerankStarted = performance.now();
+      const reranked: Hit[] = await this.rerank(q, fused);
+      const rerankMs = Math.round(performance.now() - rerankStarted);
+      return reranked.map((hit) => ({
+        ...hit,
+        stageLatencies: { ...hit.stageLatencies, rerank: rerankMs },
+      }));
     });
   }
 }

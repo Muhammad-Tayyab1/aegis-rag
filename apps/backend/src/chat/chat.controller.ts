@@ -94,7 +94,7 @@ export class ChatController {
             chunkId: h.id,
             rank: h.rank,
             score: h.score,
-            latencyMs: 0,
+            latencyMs: h.stageLatencies?.[stage] ?? 0,
             details: { filename: h.filename },
           })),
         ),
