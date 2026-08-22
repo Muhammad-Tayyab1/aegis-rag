@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../common/database/prisma.service";
 import { embed } from "../retrieval/retrieval.service";
+import { createHash } from "node:crypto";
 @Injectable()
 export class IngestionService {
   constructor(private readonly prisma: PrismaService) {}
@@ -43,6 +44,11 @@ export class IngestionService {
       const config = await tx.tenantConfig.findUnique({ where: { tenantId } });
       const chunkSize = config?.chunkSize ?? 800;
       const chunkOverlap = Math.min(config?.chunkOverlap ?? 100, chunkSize - 1);
+      const contentHash = createHash("sha256").update(content).digest("hex");
+      const existing = await tx.document.findFirst({
+        where: { tenantId, filename, contentHash },
+      });
+      if (existing) return existing;
       await tx.document.deleteMany({ where: { tenantId, filename } });
       const doc = await tx.document.create({
         data: {
@@ -51,6 +57,7 @@ export class IngestionService {
           sourceType,
           sourceUri,
           status: "processing",
+          contentHash,
         },
       });
       for (const [ordinal, text] of this.chunk(
