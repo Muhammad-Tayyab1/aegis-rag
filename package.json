@@ -12,6 +12,7 @@
     "lint": "npm run lint --workspaces",
     "test": "npm run test --workspace=@aegis-rag/backend",
     "db:migrate": "prisma migrate deploy --schema apps/backend/prisma/schema.prisma",
+    "db:seed": "tsx apps/backend/prisma/seed.ts",
     "prisma:generate": "prisma generate --schema apps/backend/prisma/schema.prisma",
     "eval": "tsx eval/run.ts"
   },
