@@ -10,6 +10,8 @@ datasource db {
 enum UserRole {
   admin
   member
+
+  @@map("user_role")
 }
 
 enum DocumentStatus {
@@ -17,6 +19,8 @@ enum DocumentStatus {
   processing
   ready
   failed
+
+  @@map("document_status")
 }
 
 model Tenant {
