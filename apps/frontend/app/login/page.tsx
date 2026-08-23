@@ -1,6 +1,7 @@
 "use client";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -60,6 +61,9 @@ export default function LoginPage() {
         <button className="button" disabled={loading}>
           {loading ? "Signing in…" : "Sign in →"}
         </button>
+        <p>
+          Joining an existing workspace? <Link href="/register">Register</Link>
+        </p>
       </form>
     </main>
   );

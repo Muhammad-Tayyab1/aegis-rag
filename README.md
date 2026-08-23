@@ -150,6 +150,7 @@ Retrieved text is explicitly framed as data, not instructions, in the generation
 | Path          | Purpose                                           |
 | ------------- | ------------------------------------------------- |
 | `/documents`  | Upload and manage tenant documents                |
+| `/register`   | Join an existing tenant workspace                 |
 | `/connectors` | Configure and synchronize external sources        |
 | `/chat`       | Stream grounded answers, citations, and feedback  |
 | `/traces`     | Admin-only retrieval debugger                     |
