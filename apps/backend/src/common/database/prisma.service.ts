@@ -17,6 +17,9 @@ export class PrismaService
     callback: (tx: Prisma.TransactionClient) => Promise<T>,
   ): Promise<T> {
     return this.$transaction(async (tx) => {
+      // The connection owner can bypass RLS. Every tenant transaction assumes
+      // this restricted role so policies remain effective in local/Compose use.
+      await tx.$executeRaw`SET LOCAL ROLE aegis_runtime`;
       await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
       return callback(tx);
     });

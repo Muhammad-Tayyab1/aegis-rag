@@ -21,6 +21,7 @@ Naive RAG fails silently: weak context goes into a model, a confident answer com
 
 - JWT access and rotating refresh tokens, Argon2 password hashing, roles, global and per-tenant rate limits.
 - Tenant-scoped Prisma transactions backed by PostgreSQL row-level security.
+- Restricted runtime database role plus integration tests proving raw reads and writes cannot cross tenants.
 - TXT, Markdown, CSV, JSON, PDF, and DOCX ingestion with version replacement.
 - Basic email/phone redaction and prompt-injection pattern rejection during file ingestion.
 - REST API, read-only PostgreSQL, and bounded website/sitemap connectors with scheduled sync.
@@ -171,6 +172,7 @@ The evaluator reports per-case pass/fail and an overall retrieval hit rate. Run 
 ```bash
 npm run prisma:generate
 npm test
+npm run test:integration # requires TEST_DATABASE_URL with migrations applied
 npm run lint
 npm run build
 ```
