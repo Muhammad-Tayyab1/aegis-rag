@@ -9,6 +9,7 @@ import { RetrievalService } from "../retrieval/retrieval.service";
 import { LlmService } from "./llm.service";
 import { TenantRateLimitGuard } from "../common/tenant/tenant-rate-limit.guard";
 import { SemanticCacheService } from "./semantic-cache.service";
+import { estimatedTokens } from "./usage-cost";
 class Ask {
   @IsString() question!: string;
 }
@@ -35,10 +36,26 @@ export class ChatController {
     const ticketMatch = b.question.match(
       /(?:file|create|open)\s+(?:a\s+)?(?:bug|ticket)(?:\s+for)?\s+(.+)/i,
     );
-    let answer = cached
-      ? cached.answer
-      : await this.llm.answer(b.question, hits);
-    if (ticketMatch) answer = `Ticket created: ${ticketMatch[1]}`;
+    const generation = cached
+      ? {
+          text: cached.answer,
+          provider: "semantic-cache",
+          model: "cached-answer",
+          inputTokens: estimatedTokens(b.question),
+          outputTokens: estimatedTokens(cached.answer),
+          estimatedCostUsd: 0,
+        }
+      : ticketMatch
+        ? {
+            text: `Ticket created: ${ticketMatch[1]}`,
+            provider: "tool",
+            model: "create_ticket",
+            inputTokens: estimatedTokens(b.question),
+            outputTokens: estimatedTokens(`Ticket created: ${ticketMatch[1]}`),
+            estimatedCostUsd: 0,
+          }
+        : await this.llm.answer(b.question, hits);
+    const answer = generation.text;
     return this.p.withTenant(u.tenantId, async (tx) => {
       const q = await tx.query.create({
         data: {
@@ -46,7 +63,8 @@ export class ChatController {
           userId: u.id,
           question: b.question,
           answer,
-          tokensUsed: Math.ceil(answer.length / 4),
+          tokensUsed: generation.inputTokens + generation.outputTokens,
+          estimatedCostUsd: generation.estimatedCostUsd,
         },
       });
       if (ticketMatch) {
@@ -94,6 +112,21 @@ export class ChatController {
             },
           },
         });
+      await tx.queryTrace.create({
+        data: {
+          tenantId: u.tenantId,
+          queryId: q.id,
+          stage: "generation",
+          latencyMs: 0,
+          details: {
+            provider: generation.provider,
+            model: generation.model,
+            inputTokens: generation.inputTokens,
+            outputTokens: generation.outputTokens,
+            estimatedCostUsd: generation.estimatedCostUsd,
+          },
+        },
+      });
       await tx.queryTrace.createMany({
         data: hits.flatMap((h) =>
           [...(h.stages ?? ["fusion"]), "rerank"].map((stage) => ({

@@ -28,7 +28,7 @@ Naive RAG fails silently: weak context goes into a model, a confident answer com
 - Optional Cohere reranking with a free lexical fallback.
 - Optional Groq generation with a free local extractive fallback.
 - SSE streaming chat, structured citation cards, one-pass weak-context query rerouting, and tenant-scoped near-duplicate semantic caching.
-- Admin retrieval trace viewer, thumbs-up/down feedback, usage and estimated-cost dashboard, optional billing webhook.
+- Admin retrieval trace viewer, thumbs-up/down feedback, provider-aware query metering and cost dashboard, optional billing webhook.
 - Intent-gated `create_ticket` tool with persisted tickets and trace entries.
 - Golden Q&A evaluation command, Jest tests, and GitHub Actions CI.
 
@@ -107,19 +107,20 @@ docker compose up --build
 
 ## Configuration
 
-| Variable                                                | Purpose                                                   | Required                  |
-| ------------------------------------------------------- | --------------------------------------------------------- | ------------------------- |
-| `DATABASE_URL`                                          | PostgreSQL connection with pgvector enabled               | Yes                       |
-| `JWT_SECRET`                                            | Access and refresh-token signing secret                   | Yes                       |
-| `CONNECTOR_ENCRYPTION_KEY`                              | 32-byte hex key for stored database connector credentials | For PostgreSQL connectors |
-| `WEB_ORIGIN`                                            | Comma-separated allowed browser origins                   | Recommended               |
-| `TENANT_RATE_LIMIT_PER_MINUTE`                          | Per-tenant API limit                                      | No; defaults to 120       |
-| `SEMANTIC_CACHE_SIMILARITY`, `SEMANTIC_CACHE_TTL_HOURS` | Cache match threshold and lifetime                        | No                        |
-| `GROQ_API_KEY`, `GROQ_MODEL`                            | Optional hosted answer generation                         | No                        |
-| `COHERE_API_KEY`, `COHERE_RERANK_MODEL`                 | Optional hosted reranking                                 | No                        |
-| `BILLING_QUERY_THRESHOLD`, `BILLING_WEBHOOK_URL`        | Optional usage notification                               | No                        |
-| `EVAL_API_URL`, `EVAL_TOKEN`                            | Golden-set evaluation target and tenant access token      | For `npm run eval`        |
-| `SEED_ADMIN_PASSWORD`, `SEED_MEMBER_PASSWORD`           | Passwords used by the seed script                         | For seeding               |
+| Variable                                                                  | Purpose                                                   | Required                  |
+| ------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------- |
+| `DATABASE_URL`                                                            | PostgreSQL connection with pgvector enabled               | Yes                       |
+| `JWT_SECRET`                                                              | Access and refresh-token signing secret                   | Yes                       |
+| `CONNECTOR_ENCRYPTION_KEY`                                                | 32-byte hex key for stored database connector credentials | For PostgreSQL connectors |
+| `WEB_ORIGIN`                                                              | Comma-separated allowed browser origins                   | Recommended               |
+| `TENANT_RATE_LIMIT_PER_MINUTE`                                            | Per-tenant API limit                                      | No; defaults to 120       |
+| `SEMANTIC_CACHE_SIMILARITY`, `SEMANTIC_CACHE_TTL_HOURS`                   | Cache match threshold and lifetime                        | No                        |
+| `GROQ_API_KEY`, `GROQ_MODEL`                                              | Optional hosted answer generation                         | No                        |
+| `GROQ_INPUT_USD_PER_MILLION_TOKENS`, `GROQ_OUTPUT_USD_PER_MILLION_TOKENS` | Configurable Groq metering rates                          | No; defaults to free      |
+| `COHERE_API_KEY`, `COHERE_RERANK_MODEL`                                   | Optional hosted reranking                                 | No                        |
+| `BILLING_QUERY_THRESHOLD`, `BILLING_WEBHOOK_URL`                          | Optional usage notification                               | No                        |
+| `EVAL_API_URL`, `EVAL_TOKEN`                                              | Golden-set evaluation target and tenant access token      | For `npm run eval`        |
+| `SEED_ADMIN_PASSWORD`, `SEED_MEMBER_PASSWORD`                             | Passwords used by the seed script                         | For seeding               |
 
 See [.env.example](.env.example) for the complete template. Never commit `.env`.
 
