@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { apiFetch } from "../../lib/api";
 export default function Chat() {
   const [q, setQ] = useState("");
   const [a, setA] = useState("");
@@ -14,17 +15,13 @@ export default function Chat() {
     setC([]);
     setQueryId("");
     setRated(false);
-    const r = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api"}/chat/stream`,
-      {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("aegis.accessToken") ?? ""}`,
-        },
-        body: JSON.stringify({ question: q }),
+    const r = await apiFetch("/chat/stream", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
       },
-    );
+      body: JSON.stringify({ question: q }),
+    });
     const reader = r.body?.getReader();
     if (!reader) return;
     const decoder = new TextDecoder();
@@ -49,17 +46,13 @@ export default function Chat() {
     setBusy(false);
   }
   async function rate(rating: 1 | -1) {
-    await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api"}/feedback/${queryId}`,
-      {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("aegis.accessToken") ?? ""}`,
-        },
-        body: JSON.stringify({ rating }),
+    await apiFetch(`/feedback/${queryId}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
       },
-    );
+      body: JSON.stringify({ rating }),
+    });
     setRated(true);
   }
   return (

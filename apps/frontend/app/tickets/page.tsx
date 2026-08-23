@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { apiFetch } from "../../lib/api";
 type Ticket = {
   id: string;
   summary: string;
@@ -10,12 +11,7 @@ type Ticket = {
 export default function Tickets() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   useEffect(() => {
-    const api = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
-    fetch(api + "/tools/tickets", {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("aegis.accessToken") ?? ""}`,
-      },
-    })
+    apiFetch("/tools/tickets")
       .then((r) => r.json())
       .then(setTickets);
   }, []);

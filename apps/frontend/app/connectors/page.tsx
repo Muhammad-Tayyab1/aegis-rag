@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { apiFetch } from "../../lib/api";
 type Connector = {
   id: string;
   name: string;
@@ -17,13 +18,8 @@ export default function Connectors() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState("");
-  const api = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
-  const headers = () => ({
-    "content-type": "application/json",
-    Authorization: `Bearer ${localStorage.getItem("aegis.accessToken") ?? ""}`,
-  });
   const load = () =>
-    fetch(api + "/connectors", { headers: headers() })
+    apiFetch("/connectors")
       .then((r) => r.json())
       .then(setList);
   useEffect(() => {
@@ -40,9 +36,9 @@ export default function Connectors() {
           : type === "crawler"
             ? { url, maxPages }
             : { url };
-      const response = await fetch(api + "/connectors", {
+      const response = await apiFetch("/connectors", {
         method: "POST",
-        headers: headers(),
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ name, type, config }),
       });
       const body = await response.json();
@@ -68,9 +64,8 @@ export default function Connectors() {
     setError("");
     setSyncing(id);
     try {
-      const response = await fetch(`${api}/connectors/${id}/sync`, {
+      const response = await apiFetch(`/connectors/${id}/sync`, {
         method: "POST",
-        headers: headers(),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.message ?? "Sync failed");

@@ -1,15 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
+import { apiFetch } from "../../lib/api";
 export default function Documents() {
   const [docs, setDocs] = useState<any[]>([]);
   const [message, setMessage] = useState("");
-  const api = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
-  const auth = () => ({
-    Authorization:
-      "Bearer " + (localStorage.getItem("aegis.accessToken") ?? ""),
-  });
   const load = () =>
-    fetch(api + "/documents", { headers: auth() })
+    apiFetch("/documents")
       .then((r) => r.json())
       .then(setDocs);
   useEffect(() => {
@@ -20,18 +16,16 @@ export default function Documents() {
     if (!f) return;
     const b = new FormData();
     b.append("file", f);
-    const r = await fetch(api + "/documents/upload", {
+    const r = await apiFetch("/documents/upload", {
       method: "POST",
-      headers: auth(),
       body: b,
     });
     setMessage(r.ok ? "Uploaded successfully" : "Upload failed");
     load();
   }
   async function remove(id: string) {
-    await fetch(api + "/documents/" + id, {
+    await apiFetch("/documents/" + id, {
       method: "DELETE",
-      headers: auth(),
     });
     load();
   }

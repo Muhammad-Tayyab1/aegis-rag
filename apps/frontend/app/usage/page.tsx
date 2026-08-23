@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { apiFetch } from "../../lib/api";
 
 type Usage = { queries: number; tokens: number; cost: string | number };
 
@@ -9,9 +10,7 @@ export default function UsagePage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const api = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
-    const token = localStorage.getItem("aegis.accessToken") ?? "";
-    fetch(`${api}/usage`, { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch("/usage")
       .then(async (response) => {
         if (!response.ok) throw new Error("Unable to load usage data");
         return response.json();

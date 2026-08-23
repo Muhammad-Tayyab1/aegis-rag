@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { apiFetch } from "../../lib/api";
 type Trace = {
   id: string;
   question: string;
@@ -18,13 +19,8 @@ type Trace = {
 export default function Traces() {
   const [items, setItems] = useState<Trace[]>([]);
   const [selected, setSelected] = useState<Trace>();
-  const api = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
   useEffect(() => {
-    fetch(api + "/traces", {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("aegis.accessToken") ?? ""}`,
-      },
-    })
+    apiFetch("/traces")
       .then((r) => r.json())
       .then(setItems);
   }, []);
