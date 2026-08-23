@@ -10,6 +10,8 @@ export default function Connectors() {
   const [list, setList] = useState<Connector[]>([]);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
+  const [type, setType] = useState<"rest" | "crawler">("crawler");
+  const [maxPages, setMaxPages] = useState("10");
   const api = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
   const headers = () => ({
     "content-type": "application/json",
@@ -27,7 +29,11 @@ export default function Connectors() {
     await fetch(api + "/connectors", {
       method: "POST",
       headers: headers(),
-      body: JSON.stringify({ name, type: "rest", config: { url } }),
+      body: JSON.stringify({
+        name,
+        type,
+        config: type === "crawler" ? { url, maxPages } : { url },
+      }),
     });
     setName("");
     setUrl("");
@@ -58,6 +64,16 @@ export default function Connectors() {
         <h1>Connectors</h1>
         <form className="card" onSubmit={create}>
           <label>
+            Connector type
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value as "rest" | "crawler")}
+            >
+              <option value="crawler">Website / sitemap crawler</option>
+              <option value="rest">REST API</option>
+            </select>
+          </label>
+          <label>
             Name
             <input
               value={name}
@@ -66,7 +82,9 @@ export default function Connectors() {
             />
           </label>
           <label>
-            HTTPS REST URL
+            {type === "crawler"
+              ? "HTTPS page or sitemap URL"
+              : "HTTPS REST URL"}
             <input
               type="url"
               value={url}
@@ -74,6 +92,19 @@ export default function Connectors() {
               required
             />
           </label>
+          {type === "crawler" && (
+            <label>
+              Maximum pages (1–20)
+              <input
+                type="number"
+                min="1"
+                max="20"
+                value={maxPages}
+                onChange={(e) => setMaxPages(e.target.value)}
+                required
+              />
+            </label>
+          )}
           <button className="button">Add connector</button>
         </form>
         <div className="empty">

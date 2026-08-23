@@ -2,33 +2,36 @@ import { Injectable } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import { PrismaService } from "../common/database/prisma.service";
 import { IngestionService } from "./ingestion.service";
+import { UrlCrawlerService } from "./url-crawler.service";
 
 @Injectable()
 export class ConnectorSyncService {
   constructor(
     private prisma: PrismaService,
     private ingestion: IngestionService,
+    private crawler: UrlCrawlerService,
   ) {}
   @Cron("0 * * * *")
   async syncRestConnectors() {
     const tenants = await this.prisma.tenant.findMany({ select: { id: true } });
     for (const tenant of tenants) {
       const connectors = await this.prisma.withTenant(tenant.id, (tx) =>
-        tx.connector.findMany({ where: { type: "rest" } }),
+        tx.connector.findMany({ where: { type: { in: ["rest", "crawler"] } } }),
       );
       for (const connector of connectors) {
         try {
-          const url = (connector.config as Record<string, string>).url;
+          const config = connector.config as Record<string, string>;
+          const url = config.url;
           if (!url?.startsWith("https://")) continue;
-          const response = await fetch(url, {
-            signal: AbortSignal.timeout(15000),
-          });
-          if (!response.ok) continue;
+          const text =
+            connector.type === "crawler"
+              ? (await this.crawler.crawl(url, config.maxPages)).text
+              : await this.fetchRest(url);
           await this.ingestion.ingest(
             tenant.id,
             connector.name,
-            await response.text(),
-            "rest",
+            text,
+            connector.type,
             url,
           );
           await this.prisma.withTenant(tenant.id, (tx) =>
@@ -42,5 +45,11 @@ export class ConnectorSyncService {
         }
       }
     }
+  }
+
+  private async fetchRest(url: string) {
+    const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error(`Source returned ${response.status}`);
+    return response.text();
   }
 }

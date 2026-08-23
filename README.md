@@ -20,7 +20,8 @@ Naive RAG systems fail silently: they retrieve weak context, answer confidently,
 - Multi-tenant JWT authentication with tenant identity embedded in verified tokens.
 - Prisma data model and Postgres/pgvector migration for documents, chunks, queries, traces, feedback, cache, connectors, and tickets.
 - Defense-in-depth tenant isolation: `PrismaService.withTenant()` sets a per-transaction RLS context and every tenant-owned table has a row-level security policy.
-- Document upload ingestion for TXT, Markdown, CSV, and JSON; chunks and embeddings persist in Postgres.
+- Document upload ingestion for TXT, Markdown, CSV, JSON, PDF, and DOCX; chunks and embeddings persist in Postgres.
+- Configurable REST, read-only PostgreSQL, and bounded website/sitemap connectors with scheduled synchronization.
 - Hybrid retrieval: vector similarity and PostgreSQL full-text search are merged with reciprocal-rank fusion.
 - Chat endpoint with source citations, persisted query records, and per-candidate trace data.
 - Feedback capture and per-tenant usage aggregates.
@@ -52,8 +53,8 @@ This example demonstrates the intended workflow, not regulatory certification. A
 
 ## Stack
 
-- Frontend: Next.js 15, React 19
-- API: NestJS 10, Passport JWT
+- Frontend: Next.js 16, React 19
+- API: NestJS 11, Passport JWT
 - Persistence: PostgreSQL 16, pgvector, Prisma 6
 - Local infrastructure: Docker Compose
 
