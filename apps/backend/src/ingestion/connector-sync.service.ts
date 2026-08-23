@@ -26,7 +26,7 @@ export class ConnectorSyncService {
           const text =
             connector.type === "crawler"
               ? (await this.crawler.crawl(url, config.maxPages)).text
-              : await this.fetchRest(url);
+              : (await this.crawler.fetchPublicText(url)).body;
           await this.ingestion.ingest(
             tenant.id,
             connector.name,
@@ -45,11 +45,5 @@ export class ConnectorSyncService {
         }
       }
     }
-  }
-
-  private async fetchRest(url: string) {
-    const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
-    if (!response.ok) throw new Error(`Source returned ${response.status}`);
-    return response.text();
   }
 }

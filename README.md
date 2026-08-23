@@ -128,7 +128,7 @@ See [.env.example](.env.example) for the complete template. Never commit `.env`.
 ## Connect data
 
 - Upload documents from the Documents screen. The server enforces a 10 MB limit and supported extensions.
-- Add an HTTPS REST endpoint from Connectors.
+- Add an HTTPS REST endpoint from Connectors. REST and crawler sync reject private/special-use network targets and revalidate redirects.
 - Add a website or sitemap crawler. Crawling is HTTPS-only, same-origin, capped at 20 pages, and blocks private/special-use network targets.
 - Create a PostgreSQL connector through the API with a connection string and one read-only `SELECT` query. The connection string is encrypted before storage.
 

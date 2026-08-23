@@ -1,4 +1,8 @@
-import { extractCrawlerLinks, isPrivateAddress } from "./url-crawler.service";
+import {
+  extractCrawlerLinks,
+  isPrivateAddress,
+  UrlCrawlerService,
+} from "./url-crawler.service";
 
 describe("URL crawler safeguards", () => {
   it("rejects private and special-use network addresses", () => {
@@ -24,5 +28,18 @@ describe("URL crawler safeguards", () => {
       "https://docs.example.com/guide",
       "https://docs.example.com/reference",
     ]);
+  });
+
+  it("rejects malformed, insecure, and credential-bearing connector URLs", async () => {
+    const service = new UrlCrawlerService();
+    await expect(service.fetchPublicText("not-a-url")).rejects.toThrow(
+      "valid URL",
+    );
+    await expect(
+      service.fetchPublicText("http://example.com/data"),
+    ).rejects.toThrow("HTTPS");
+    await expect(
+      service.fetchPublicText("https://user:secret@example.com/data"),
+    ).rejects.toThrow("credentials");
   });
 });

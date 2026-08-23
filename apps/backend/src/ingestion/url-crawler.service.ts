@@ -6,6 +6,27 @@ const MAX_PAGES = 20;
 const MAX_RESPONSE_BYTES = 1_000_000;
 const MAX_REDIRECTS = 3;
 
+async function readLimitedBody(response: Response) {
+  if (!response.body) return "";
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let size = 0;
+  let body = "";
+  while (true) {
+    const chunk = await reader.read();
+    if (chunk.done) break;
+    size += chunk.value.byteLength;
+    if (size > MAX_RESPONSE_BYTES) {
+      await reader.cancel();
+      throw new BadRequestException(
+        "Connector response exceeds the 1 MB limit",
+      );
+    }
+    body += decoder.decode(chunk.value, { stream: true });
+  }
+  return body + decoder.decode();
+}
+
 export function isPrivateAddress(address: string) {
   const value = address.toLowerCase();
   if (value === "::1" || value === "::" || value.startsWith("fe80:"))
@@ -61,16 +82,18 @@ function readableText(html: string) {
 export class UrlCrawlerService {
   private async assertPublicHttps(url: URL) {
     if (url.protocol !== "https:")
-      throw new BadRequestException("Crawler URLs must use HTTPS");
+      throw new BadRequestException("Connector URLs must use HTTPS");
     if (url.username || url.password)
-      throw new BadRequestException("Crawler URLs cannot contain credentials");
+      throw new BadRequestException(
+        "Connector URLs cannot contain credentials",
+      );
     const records = await lookup(url.hostname, { all: true });
     if (
       !records.length ||
       records.some((record) => isPrivateAddress(record.address))
     )
       throw new BadRequestException(
-        "Crawler URL must resolve to a public address",
+        "Connector URL must resolve to a public address",
       );
   }
 
@@ -98,11 +121,21 @@ export class UrlCrawlerService {
       );
     const declaredSize = Number(response.headers.get("content-length") ?? 0);
     if (declaredSize > MAX_RESPONSE_BYTES)
-      throw new BadRequestException("Crawler page exceeds the 1 MB limit");
-    const body = await response.text();
-    if (Buffer.byteLength(body) > MAX_RESPONSE_BYTES)
-      throw new BadRequestException("Crawler page exceeds the 1 MB limit");
+      throw new BadRequestException(
+        "Connector response exceeds the 1 MB limit",
+      );
+    const body = await readLimitedBody(response);
     return { body, url };
+  }
+
+  async fetchPublicText(sourceUrl: string) {
+    let url: URL;
+    try {
+      url = new URL(sourceUrl);
+    } catch {
+      throw new BadRequestException("Connector requires a valid URL");
+    }
+    return this.fetchPage(url);
   }
 
   async crawl(startUrl: string, requestedLimit?: string) {
@@ -122,7 +155,7 @@ export class UrlCrawlerService {
     while (pending.length && visited.size < limit) {
       const candidate = pending.shift()!;
       if (visited.has(candidate)) continue;
-      const page = await this.fetchPage(new URL(candidate));
+      const page = await this.fetchPublicText(candidate);
       if (page.url.origin !== start.origin)
         throw new BadRequestException(
           "Crawler redirects must stay on the configured origin",

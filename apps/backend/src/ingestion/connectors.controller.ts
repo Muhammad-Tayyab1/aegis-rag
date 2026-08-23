@@ -127,11 +127,7 @@ export class ConnectorsController {
       const result = await this.crawler.crawl(cfg.url, cfg.maxPages);
       text = result.text;
     } else if (c.type === "rest") {
-      if (!cfg.url?.startsWith("https://"))
-        throw new Error("REST connector requires an HTTPS URL");
-      const r = await fetch(cfg.url);
-      if (!r.ok) throw new Error(`Source returned ${r.status}`);
-      text = await r.text();
+      text = (await this.crawler.fetchPublicText(cfg.url)).body;
     } else {
       if (!cfg.connectionString || !isReadOnlySelect(cfg.query))
         throw new Error(
