@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Post,
+  UseGuards,
+} from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { IsIn, IsObject, IsString } from "class-validator";
 import { Client } from "pg";
@@ -13,6 +22,15 @@ class CreateConnector {
   @IsString() name!: string;
   @IsIn(["rest", "postgres", "crawler"]) type!: string;
   @IsObject() config!: Record<string, string>;
+}
+export function isReadOnlySelect(query?: string) {
+  return Boolean(
+    query &&
+    /^select\s/i.test(query.trim()) &&
+    !/;|\b(insert|update|delete|drop|alter|create|truncate|grant|revoke|copy)\b/i.test(
+      query,
+    ),
+  );
 }
 @UseGuards(AuthGuard("jwt"), TenantRateLimitGuard)
 @Controller("connectors")
@@ -71,8 +89,19 @@ export class ConnectorsController {
     @CurrentUser() u: AuthenticatedUser,
   ) {
     const config = { ...b.config };
-    if (b.type === "postgres" && config.connectionString)
+    if (b.type === "postgres") {
+      if (
+        !/^postgres(?:ql)?:\/\//i.test(config.connectionString ?? "") ||
+        !isReadOnlySelect(config.query)
+      )
+        throw new BadRequestException(
+          "PostgreSQL connectors require a connection string and one read-only SELECT query",
+        );
       config.connectionString = this.encrypt(config.connectionString);
+      config.query = config.query.trim();
+    } else if (!config.url?.startsWith("https://")) {
+      throw new BadRequestException("HTTP connectors require an HTTPS URL");
+    }
     return this.p.withTenant(u.tenantId, (tx) =>
       tx.connector.create({
         data: {
@@ -91,7 +120,7 @@ export class ConnectorsController {
     const c = await this.p.withTenant(u.tenantId, (tx) =>
       tx.connector.findFirst({ where: { id } }),
     );
-    if (!c) throw new Error("Connector not found");
+    if (!c) throw new NotFoundException("Connector not found");
     const cfg = c.config as Record<string, string>;
     let text = "";
     if (c.type === "crawler") {
@@ -104,11 +133,7 @@ export class ConnectorsController {
       if (!r.ok) throw new Error(`Source returned ${r.status}`);
       text = await r.text();
     } else {
-      if (
-        !cfg.connectionString ||
-        !/^select\s/i.test(cfg.query ?? "") ||
-        /;|\b(insert|update|delete|drop|alter|create)\b/i.test(cfg.query)
-      )
+      if (!cfg.connectionString || !isReadOnlySelect(cfg.query))
         throw new Error(
           "Postgres connector requires one read-only SELECT query",
         );
@@ -118,9 +143,15 @@ export class ConnectorsController {
       });
       await db.connect();
       try {
+        await db.query("BEGIN READ ONLY");
         const r = await db.query(cfg.query);
         text = r.rows.map((x) => JSON.stringify(x)).join("\n");
+        if (Buffer.byteLength(text) > 1_000_000)
+          throw new BadRequestException(
+            "PostgreSQL connector result exceeds the 1 MB limit",
+          );
       } finally {
+        await db.query("ROLLBACK").catch(() => undefined);
         await db.end();
       }
     }
