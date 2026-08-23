@@ -26,7 +26,7 @@ Naive RAG fails silently: weak context goes into a model, a confident answer com
 - REST API, read-only PostgreSQL, and bounded website/sitemap connectors with scheduled sync.
 - Deterministic local embeddings, pgvector similarity search, PostgreSQL full-text search, and reciprocal-rank fusion.
 - Optional Cohere reranking with a free lexical fallback.
-- Optional Groq generation with a free local extractive fallback.
+- Swappable generation-provider interface with Groq timeout/rate-limit handling and a guaranteed free local fallback.
 - SSE streaming chat, structured citation cards, one-pass weak-context query rerouting, and tenant-scoped near-duplicate semantic caching.
 - Admin retrieval trace viewer, thumbs-up/down feedback, provider-aware query metering and cost dashboard, optional billing webhook.
 - Intent-gated `create_ticket` tool with persisted tickets and trace entries.

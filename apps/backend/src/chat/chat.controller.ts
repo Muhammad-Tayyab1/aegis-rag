@@ -124,6 +124,8 @@ export class ChatController {
             inputTokens: generation.inputTokens,
             outputTokens: generation.outputTokens,
             estimatedCostUsd: generation.estimatedCostUsd,
+            fallbackReasons:
+              "fallbackReasons" in generation ? generation.fallbackReasons : [],
           },
         },
       });
