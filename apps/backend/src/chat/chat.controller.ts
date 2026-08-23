@@ -8,6 +8,7 @@ import { PrismaService } from "../common/database/prisma.service";
 import { RetrievalService } from "../retrieval/retrieval.service";
 import { LlmService } from "./llm.service";
 import { TenantRateLimitGuard } from "../common/tenant/tenant-rate-limit.guard";
+import { SemanticCacheService } from "./semantic-cache.service";
 class Ask {
   @IsString() question!: string;
 }
@@ -18,17 +19,10 @@ export class ChatController {
     private r: RetrievalService,
     private p: PrismaService,
     private llm: LlmService,
+    private cache: SemanticCacheService,
   ) {}
   private async context(b: Ask, u: AuthenticatedUser) {
-    const cached = await this.p.withTenant(u.tenantId, (tx) =>
-      tx.semanticCache.findFirst({
-        where: {
-          tenantId: u.tenantId,
-          question: b.question,
-          expiresAt: { gt: new Date() },
-        },
-      }),
-    );
+    const cached = await this.cache.find(u.tenantId, b.question);
     let hits = cached ? [] : await this.r.search(u.tenantId, b.question);
     let rerouted = false;
     if (!cached && (!hits.length || hits[0].score < 0.02)) {
@@ -86,6 +80,20 @@ export class ChatController {
             details: { reason: "weak initial context" },
           },
         });
+      if (cached)
+        await tx.queryTrace.create({
+          data: {
+            tenantId: u.tenantId,
+            queryId: q.id,
+            stage: "semantic_cache",
+            latencyMs: 0,
+            score: cached.similarity,
+            details: {
+              cacheId: cached.id,
+              matchedQuestion: cached.question,
+            },
+          },
+        });
       await tx.queryTrace.createMany({
         data: hits.flatMap((h) =>
           [...(h.stages ?? ["fusion"]), "rerank"].map((stage) => ({
@@ -100,30 +108,17 @@ export class ChatController {
           })),
         ),
       });
+      const citations = hits.map((h) => ({
+        chunkId: h.id,
+        document: h.filename,
+        snippet: h.content.slice(0, 240),
+      }));
       if (!cached && !ticketMatch)
-        await tx.semanticCache.create({
-          data: {
-            tenantId: u.tenantId,
-            question: b.question,
-            answer,
-            citations: hits.map((h) => ({
-              chunkId: h.id,
-              document: h.filename,
-              snippet: h.content.slice(0, 240),
-            })),
-            expiresAt: new Date(Date.now() + 86400000),
-          },
-        });
+        await this.cache.store(u.tenantId, b.question, answer, citations, tx);
       return {
         queryId: q.id,
         answer,
-        citations: cached
-          ? (cached.citations as any[])
-          : hits.map((h) => ({
-              chunkId: h.id,
-              document: h.filename,
-              snippet: h.content.slice(0, 240),
-            })),
+        citations: cached ? (cached.citations as any[]) : citations,
       };
     });
   }

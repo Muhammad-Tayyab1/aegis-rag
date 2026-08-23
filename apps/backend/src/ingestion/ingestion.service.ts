@@ -22,9 +22,12 @@ export class IngestionService {
     );
   }
   remove(tenantId: string, id: string) {
-    return this.prisma.withTenant(tenantId, (tx) =>
-      tx.document.deleteMany({ where: { id, tenantId } }),
-    );
+    return this.prisma.withTenant(tenantId, async (tx) => {
+      const removed = await tx.document.deleteMany({ where: { id, tenantId } });
+      if (removed.count)
+        await tx.semanticCache.deleteMany({ where: { tenantId } });
+      return removed;
+    });
   }
   chunk(text: string, size = 800, overlap = 100) {
     const words = text.replace(/\s+/g, " ").trim().split(" ");
@@ -49,6 +52,7 @@ export class IngestionService {
         where: { tenantId, filename, contentHash },
       });
       if (existing) return existing;
+      await tx.semanticCache.deleteMany({ where: { tenantId } });
       await tx.document.deleteMany({ where: { tenantId, filename } });
       const doc = await tx.document.create({
         data: {
