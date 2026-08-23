@@ -17,8 +17,9 @@
     "eval": "tsx eval/run.ts"
   },
   "devDependencies": {
-    "prisma": "^6.1.0",
+    "ajv": "^6.15.0",
     "prettier": "^3.5.3",
+    "prisma": "^6.1.0",
     "tsx": "^4.19.2"
   }
 }
