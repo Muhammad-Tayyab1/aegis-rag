@@ -63,6 +63,12 @@ export class AuthService {
       throw new UnauthorizedException("Invalid refresh token");
     }
   }
+  async logout(userId: string) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { refreshTokenHash: null },
+    });
+  }
   private async issue(user: {
     id: string;
     tenantId: string;

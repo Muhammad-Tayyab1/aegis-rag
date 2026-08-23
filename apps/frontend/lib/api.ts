@@ -1,6 +1,11 @@
 const api = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 let refreshInFlight: Promise<boolean> | null = null;
 
+export function clearSession() {
+  localStorage.removeItem("aegis.accessToken");
+  localStorage.removeItem("aegis.refreshToken");
+}
+
 async function refreshAccessToken() {
   if (refreshInFlight) return refreshInFlight;
   refreshInFlight = (async () => {
@@ -12,8 +17,7 @@ async function refreshAccessToken() {
       body: JSON.stringify({ refreshToken }),
     });
     if (!response.ok) {
-      localStorage.removeItem("aegis.accessToken");
-      localStorage.removeItem("aegis.refreshToken");
+      clearSession();
       return false;
     }
     const tokens = await response.json();

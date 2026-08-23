@@ -110,6 +110,18 @@ textarea {
 .error {
   color: #b42318;
 }
+.logout-button {
+  position: fixed;
+  right: 20px;
+  top: 18px;
+  z-index: 20;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--ink);
+  padding: 8px 12px;
+  cursor: pointer;
+}
 .dashboard {
   display: grid;
   grid-template-columns: 230px 1fr;

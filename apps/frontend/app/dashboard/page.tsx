@@ -35,15 +35,10 @@ export default function DashboardPage() {
         </div>
         <nav>
           <Link href="/dashboard">Overview</Link>
-          <span>
-            Documents <em>soon</em>
-          </span>
-          <span>
-            Chat <em>soon</em>
-          </span>
-          <span>
-            Traces <em>soon</em>
-          </span>
+          <Link href="/documents">Documents</Link>
+          <Link href="/connectors">Connectors</Link>
+          <Link href="/chat">Chat</Link>
+          <Link href="/traces">Traces</Link>
         </nav>
       </aside>
       <section>
@@ -81,9 +76,9 @@ export default function DashboardPage() {
             Connect a source or upload a document to begin building your
             retrieval index.
           </p>
-          <button className="button" disabled>
-            Connect source — coming next
-          </button>
+          <Link className="button" href="/connectors">
+            Connect a source
+          </Link>
         </div>
       </section>
     </main>
