@@ -20,6 +20,15 @@ services:
       DATABASE_URL: "postgresql://rag:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-aegis_rag}"
       JWT_SECRET: "${JWT_SECRET:-development-only-change-me}"
       API_PORT: 4000
+      WEB_ORIGIN: "${WEB_ORIGIN:-http://localhost:3000}"
+      CONNECTOR_ENCRYPTION_KEY: "${CONNECTOR_ENCRYPTION_KEY:-}"
+      TENANT_RATE_LIMIT_PER_MINUTE: "${TENANT_RATE_LIMIT_PER_MINUTE:-120}"
+      COHERE_API_KEY: "${COHERE_API_KEY:-}"
+      COHERE_RERANK_MODEL: "${COHERE_RERANK_MODEL:-rerank-v3.5}"
+      GROQ_API_KEY: "${GROQ_API_KEY:-}"
+      GROQ_MODEL: "${GROQ_MODEL:-llama-3.3-70b-versatile}"
+      BILLING_QUERY_THRESHOLD: "${BILLING_QUERY_THRESHOLD:-0}"
+      BILLING_WEBHOOK_URL: "${BILLING_WEBHOOK_URL:-}"
     ports: ["4000:4000"]
     command:
       [
