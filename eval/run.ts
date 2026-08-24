@@ -1,36 +1,78 @@
-import cases from "./golden-qa.json" with { type: "json" };
+import rawCases from "./golden-qa.json" with { type: "json" };
+import {
+  EvalResponse,
+  GoldenCase,
+  percentage,
+  scoreCase,
+  validateGoldenCase,
+} from "./scoring";
+
 const api = process.env.EVAL_API_URL ?? "http://localhost:4000/api";
 const token = process.env.EVAL_TOKEN;
-if (!token) {
-  console.error("Set EVAL_TOKEN to a valid workspace JWT.");
-  process.exit(1);
-}
-let passed = 0;
+if (!token) throw new Error("Set EVAL_TOKEN to a valid workspace JWT.");
+if (!Array.isArray(rawCases) || !rawCases.every(validateGoldenCase))
+  throw new Error("eval/golden-qa.json contains an invalid case.");
+
+const headers = {
+  "content-type": "application/json",
+  authorization: `Bearer ${token}`,
+};
+const tenantResponse = await fetch(`${api}/tenants/me`, { headers });
+if (!tenantResponse.ok)
+  throw new Error(
+    `Unable to identify eval tenant (HTTP ${tenantResponse.status}).`,
+  );
+const tenant = (await tenantResponse.json()) as { slug: string };
+const cases = (rawCases as GoldenCase[]).filter(
+  (test) => test.tenant === tenant.slug,
+);
+if (!cases.length)
+  throw new Error(`No golden cases found for tenant '${tenant.slug}'.`);
+
+const results = [];
 for (const test of cases) {
-  const r = await fetch(`${api}/chat`, {
+  const response = await fetch(`${api}/chat`, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${token}`,
-    },
+    headers,
     body: JSON.stringify({ question: test.question }),
   });
-  if (!r.ok) {
-    console.log(`FAIL ${test.question} (HTTP ${r.status})`);
+  if (!response.ok) {
+    const result = {
+      question: test.question,
+      passed: false,
+      retrievalPassed: false,
+      answerPassed: false,
+      error: `HTTP ${response.status}`,
+    };
+    results.push(result);
+    console.log(`FAIL ${test.question} — ${result.error}`);
     continue;
   }
-  const body = (await r.json()) as { answer: string; citations: unknown[] };
-  const answer = body.answer.toLowerCase();
-  const keywords = test.expectedKeywords.filter((k) => answer.includes(k));
-  const ok =
-    body.citations.length > 0 &&
-    keywords.length === test.expectedKeywords.length;
-  if (ok) passed++;
+  const score = scoreCase(test, (await response.json()) as EvalResponse);
+  results.push({ question: test.question, ...score });
   console.log(
-    `${ok ? "PASS" : "FAIL"} ${test.question} — citations=${body.citations.length}, keywords=${keywords.length}/${test.expectedKeywords.length}`,
+    `${score.passed ? "PASS" : "FAIL"} ${test.question} — retrieval=${score.retrievalPassed ? "pass" : "fail"} (${score.citationCount} citations, ${score.matchedSources}/${score.expectedSources} expected sources), answer=${score.answerPassed ? "pass" : "fail"} (${score.matchedKeywords}/${score.expectedKeywords} keywords)`,
   );
 }
+
+const retrievalPassed = results.filter(
+  (result) => result.retrievalPassed,
+).length;
+const answerPassed = results.filter((result) => result.answerPassed).length;
+const passed = results.filter((result) => result.passed).length;
+const report = {
+  tenant: tenant.slug,
+  evaluated: results.length,
+  skipped: rawCases.length - results.length,
+  retrievalHitRate: percentage(retrievalPassed, results.length),
+  answerAccuracy: percentage(answerPassed, results.length),
+  overallPassRate: percentage(passed, results.length),
+  passed,
+  results,
+};
+
 console.log(
-  `\n${passed}/${cases.length} passed (${Math.round((passed / cases.length) * 100)}%)`,
+  `\nRetrieval hit rate: ${report.retrievalHitRate}%\nAnswer accuracy: ${report.answerAccuracy}%\nOverall: ${passed}/${results.length} (${report.overallPassRate}%)`,
 );
-process.exit(passed === cases.length ? 0 : 1);
+console.log(`EVAL_REPORT_JSON=${JSON.stringify(report)}`);
+process.exitCode = passed === results.length ? 0 : 1;

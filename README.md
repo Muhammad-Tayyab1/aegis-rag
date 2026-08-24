@@ -167,11 +167,12 @@ Add tenant-specific cases to `eval/golden-qa.json`, authenticate as that tenant,
 EVAL_TOKEN=your-access-token npm run eval
 ```
 
-The evaluator reports per-case pass/fail and an overall retrieval hit rate. Run the same checks used in CI with:
+The evaluator verifies the token's tenant, reports retrieval hit rate separately from answer accuracy, optionally checks expected source filenames, and emits `EVAL_REPORT_JSON` for CI ingestion. Run the same checks used in CI with:
 
 ```bash
 npm run prisma:generate
 npm test
+npm run test:eval
 npm run test:integration # requires TEST_DATABASE_URL with migrations applied
 npm run lint
 npm run build

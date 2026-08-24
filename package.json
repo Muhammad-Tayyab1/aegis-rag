@@ -15,7 +15,8 @@
     "db:migrate": "prisma migrate deploy --schema apps/backend/prisma/schema.prisma",
     "db:seed": "tsx apps/backend/prisma/seed.ts",
     "prisma:generate": "prisma generate --schema apps/backend/prisma/schema.prisma",
-    "eval": "tsx eval/run.ts"
+    "eval": "tsx eval/run.ts",
+    "test:eval": "tsx --test eval/scoring.test.ts"
   },
   "devDependencies": {
     "ajv": "^6.15.0",
