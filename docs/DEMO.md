@@ -33,5 +33,6 @@ Start the stack, upload the file from `/documents`, and keep the browser tabs `/
 - Show the citation card and trace details long enough to read.
 - Do not show `.env`, access tokens, connection strings, or real patient/client data.
 - Export as MP4 for a portfolio and optionally create a compressed GIF preview for the README.
+- Save the finished artifact as `docs/aegis-rag-demo.mp4` or `docs/aegis-rag-demo.gif`; do not add a placeholder or simulated recording.
 
 The demo uses synthetic policy text and does not imply regulatory certification.

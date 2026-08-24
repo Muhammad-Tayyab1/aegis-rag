@@ -2,14 +2,14 @@ import { Injectable } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import { PrismaService } from "../common/database/prisma.service";
 import { IngestionService } from "./ingestion.service";
-import { UrlCrawlerService } from "./url-crawler.service";
+import { ConnectorFetchers } from "./connectors/connector-fetchers.service";
 
 @Injectable()
 export class ConnectorSyncService {
   constructor(
     private prisma: PrismaService,
     private ingestion: IngestionService,
-    private crawler: UrlCrawlerService,
+    private fetchers: ConnectorFetchers,
   ) {}
   @Cron("0 * * * *")
   async syncRestConnectors() {
@@ -21,18 +21,18 @@ export class ConnectorSyncService {
       for (const connector of connectors) {
         try {
           const config = connector.config as Record<string, string>;
-          const url = config.url;
-          if (!url?.startsWith("https://")) continue;
-          const text =
-            connector.type === "crawler"
-              ? (await this.crawler.crawl(url, config.maxPages)).text
-              : (await this.crawler.fetchPublicText(url)).body;
+          if (!config.url?.startsWith("https://")) continue;
+          const [raw] = await this.fetchers.fetch(
+            connector.type,
+            connector.name,
+            config,
+          );
           await this.ingestion.ingest(
             tenant.id,
-            connector.name,
-            text,
-            connector.type,
-            url,
+            raw.filename,
+            raw.content,
+            raw.sourceType,
+            raw.sourceUri,
           );
           await this.prisma.withTenant(tenant.id, (tx) =>
             tx.connector.update({

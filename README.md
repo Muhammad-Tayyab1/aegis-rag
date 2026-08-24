@@ -26,7 +26,7 @@ Naive RAG fails silently: weak context goes into a model, a confident answer com
 - Centralized email/phone redaction and prompt-injection rejection for files and every connector source, plus upload MIME/signature validation.
 - REST API, read-only PostgreSQL, and bounded website/sitemap connectors with scheduled sync.
 - Explicit `aegis-hash-384` deterministic local embeddings, pgvector similarity search, PostgreSQL full-text search, and reciprocal-rank fusion; unsupported model identifiers are rejected rather than silently mixed in one index.
-- Optional Cohere reranking with a free lexical fallback.
+- Optional Cohere reranking with a local `ms-marco-MiniLM-L-6-v2` cross-encoder fallback. If its model is not cached and cannot be downloaded, traces explicitly report the lexical emergency fallback.
 - Swappable generation-provider interface with Groq timeout/rate-limit handling and a guaranteed free local fallback.
 - SSE streaming chat, structured citation cards, one-pass weak-context query rerouting, and tenant-scoped near-duplicate semantic caching.
 - Admin retrieval trace viewer, thumbs-up/down feedback, provider-aware query metering and cost dashboard, optional idempotent billing webhook milestones.
@@ -118,7 +118,7 @@ docker compose up --build
 | `SEMANTIC_CACHE_SIMILARITY`, `SEMANTIC_CACHE_TTL_HOURS`                   | Cache match threshold and lifetime                        | No                        |
 | `GROQ_API_KEY`, `GROQ_MODEL`                                              | Optional hosted answer generation                         | No                        |
 | `GROQ_INPUT_USD_PER_MILLION_TOKENS`, `GROQ_OUTPUT_USD_PER_MILLION_TOKENS` | Configurable Groq metering rates                          | No; defaults to free      |
-| `COHERE_API_KEY`, `COHERE_RERANK_MODEL`                                   | Optional hosted reranking                                 | No                        |
+| `COHERE_API_KEY`, `COHERE_RERANK_MODEL`, `LOCAL_RERANK_MODEL`             | Hosted or local cross-encoder reranking                   | No                        |
 | `BILLING_QUERY_THRESHOLD`, `BILLING_WEBHOOK_URL`                          | Optional usage notification                               | No                        |
 | `EVAL_API_URL`, `EVAL_TOKEN`                                              | Golden-set evaluation target and tenant access token      | For `npm run eval`        |
 | `SEED_ADMIN_PASSWORD`, `SEED_MEMBER_PASSWORD`                             | Passwords used by the seed script                         | For seeding               |
@@ -161,7 +161,7 @@ Retrieved text is explicitly framed as data, not instructions, in the generation
 
 ## Evaluation and validation
 
-Add tenant-specific cases to `eval/golden-qa.json`, authenticate as that tenant, and run:
+The example golden cases correspond to the documents in `eval/fixtures`. Upload those fixtures to the `aegis-demo` tenant, or replace the cases with tenant-specific questions and source filenames, authenticate as that tenant, and run:
 
 ```bash
 EVAL_TOKEN=your-access-token npm run eval
@@ -187,11 +187,11 @@ npm run build
 5. Set unique production values for JWT and connector encryption keys, restrict `WEB_ORIGIN`, and terminate TLS at the ingress.
 6. Keep database backups, retention, audit collection, key rotation, and incident response under the client’s controls.
 
-When using Docker Compose, replace the backend `DATABASE_URL` with the external URL and omit the local `postgres` service in the deployment override. The application’s tenant schema, RLS policies, and retrieval code remain unchanged.
+When using Docker Compose, set `DATABASE_URL` to the external URL and start only the application services with `docker compose up --build backend frontend`; the local `postgres` service is then neither started nor required. The application’s tenant schema, RLS policies, and retrieval code remain unchanged.
 
 ## Demo
 
-The [90-second demo walkthrough](docs/DEMO.md) provides setup, narration, and a shot list covering ingestion, exact-ID hybrid retrieval, streaming citations, traces, rerouting, usage, and tool calling. It can be recorded locally without paid API keys.
+The [90-second demo walkthrough](docs/DEMO.md) provides setup, narration, and a shot list covering ingestion, exact-ID hybrid retrieval, streaming citations, traces, rerouting, usage, and tool calling. The recording is intentionally not represented as complete until `docs/aegis-rag-demo.mp4` or `docs/aegis-rag-demo.gif` is captured from a running stack.
 
 ## Design boundaries
 

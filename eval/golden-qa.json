@@ -2,11 +2,13 @@
   {
     "tenant": "aegis-demo",
     "question": "What is our refund policy?",
-    "expectedKeywords": ["refund", "policy"]
+    "expectedKeywords": ["refund", "policy"],
+    "expectedSources": ["refund-policy.md"]
   },
   {
     "tenant": "aegis-demo",
     "question": "How do I escalate an incident?",
-    "expectedKeywords": ["incident", "escalat"]
+    "expectedKeywords": ["incident", "escalat"],
+    "expectedSources": ["incident-escalation.md"]
   }
 ]
