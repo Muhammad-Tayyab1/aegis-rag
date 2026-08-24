@@ -19,11 +19,16 @@ describe("retrieval trace provenance", () => {
       filename: "policy.md",
       content: "policy",
       score: 0.5,
+      rank: 3,
       stages: ["keyword", "fusion"],
+      stageScores: { keyword: 0.6, fusion: 0.03 },
+      stageRanks: { keyword: 2, fusion: 1 },
       stageLatencies: { keyword: 2, fusion: 1 },
     };
     expect(markReranked(hit, 7)).toMatchObject({
       stages: ["keyword", "fusion", "rerank"],
+      stageScores: { keyword: 0.6, fusion: 0.03, rerank: 0.5 },
+      stageRanks: { keyword: 2, fusion: 1, rerank: 3 },
       stageLatencies: { keyword: 2, fusion: 1, rerank: 7 },
     });
     expect(markReranked(markReranked(hit, 7), 8).stages).toEqual([

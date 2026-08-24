@@ -9,11 +9,15 @@ export type Hit = {
   score: number;
   rank?: number;
   stages?: string[];
+  stageScores?: Record<string, number>;
+  stageRanks?: Record<string, number>;
   stageLatencies?: Record<string, number>;
 };
 export const markReranked = (hit: Hit, latencyMs: number): Hit => ({
   ...hit,
   stages: [...new Set([...(hit.stages ?? []), "rerank"])],
+  stageScores: { ...hit.stageScores, rerank: hit.score },
+  stageRanks: { ...hit.stageRanks, rerank: hit.rank ?? 0 },
   stageLatencies: { ...hit.stageLatencies, rerank: latencyMs },
 });
 export const embed = (text: string) => {
@@ -94,12 +98,30 @@ export class RetrievalService {
       const v = vectorResult.rows,
         k = keywordResult.rows;
       const fusionStarted = performance.now();
-      const m = new Map<string, { h: Hit; s: number; stages: Set<string> }>();
+      const m = new Map<
+        string,
+        {
+          h: Hit;
+          s: number;
+          stages: Set<string>;
+          scores: Record<string, number>;
+          ranks: Record<string, number>;
+        }
+      >();
       [v, k].forEach((a, sourceIndex) =>
         a.forEach((h, i) => {
-          const x = m.get(h.id) ?? { h, s: 0, stages: new Set<string>() };
+          const stage = sourceIndex === 0 ? "vector" : "keyword";
+          const x = m.get(h.id) ?? {
+            h,
+            s: 0,
+            stages: new Set<string>(),
+            scores: {},
+            ranks: {},
+          };
           x.s += 1 / (61 + i);
-          x.stages.add(sourceIndex === 0 ? "vector" : "keyword");
+          x.stages.add(stage);
+          x.scores[stage] = h.score;
+          x.ranks[stage] = i + 1;
           m.set(h.id, x);
         }),
       );
@@ -111,6 +133,8 @@ export class RetrievalService {
           score: x.s,
           rank: i + 1,
           stages: [...x.stages, "fusion"],
+          stageScores: { ...x.scores, fusion: x.s },
+          stageRanks: { ...x.ranks, fusion: i + 1 },
           stageLatencies: {
             vector: vectorResult.ms,
             keyword: keywordResult.ms,
