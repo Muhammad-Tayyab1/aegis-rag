@@ -24,22 +24,33 @@ enum DocumentStatus {
 }
 
 model Tenant {
-  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name      String
-  slug      String       @unique
-  plan      String       @default("starter")
-  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  config    TenantConfig?
-  users     User[]
-  documents Document[]
-  chunks    Chunk[]
-  queries   Query[]
-  traces    QueryTrace[]
-  feedback  Feedback[]
-  connectors Connector[]
-  tickets Ticket[]
-  cache SemanticCache[]
+  id              String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String
+  slug            String                 @unique
+  plan            String                 @default("starter")
+  createdAt       DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  config          TenantConfig?
+  users           User[]
+  documents       Document[]
+  chunks          Chunk[]
+  queries         Query[]
+  traces          QueryTrace[]
+  feedback        Feedback[]
+  connectors      Connector[]
+  tickets         Ticket[]
+  cache           SemanticCache[]
+  rateLimitWindow TenantRateLimitWindow?
+
   @@map("tenants")
+}
+
+model TenantRateLimitWindow {
+  tenantId     String   @id @map("tenant_id") @db.Uuid
+  windowStart  DateTime @map("window_start") @db.Timestamptz(6)
+  requestCount Int      @map("request_count")
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_rate_limit_windows")
 }
 
 model TenantConfig {
@@ -52,19 +63,21 @@ model TenantConfig {
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
   tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
   @@map("tenant_config")
 }
 
 model User {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId     String   @map("tenant_id") @db.Uuid
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  refreshTokenHash String? @map("refresh_token_hash")
-  role         UserRole @default(member)
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  queries      Query[]
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  email            String   @unique
+  passwordHash     String   @map("password_hash")
+  refreshTokenHash String?  @map("refresh_token_hash")
+  role             UserRole @default(member)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  queries          Query[]
+
   @@map("users")
 }
 
@@ -80,21 +93,23 @@ model Document {
   updatedAt   DateTime       @default(now()) @map("updated_at") @db.Timestamptz(6)
   tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   chunks      Chunk[]
+
   @@map("documents")
 }
 
 model Chunk {
-  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  documentId String       @map("document_id") @db.Uuid
-  tenantId   String       @map("tenant_id") @db.Uuid
+  id         String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId String                      @map("document_id") @db.Uuid
+  tenantId   String                      @map("tenant_id") @db.Uuid
   ordinal    Int
   content    String
   embedding  Unsupported("vector(384)")?
-  metadata   Json         @default("{}")
-  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  document   Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  tenant     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  metadata   Json                        @default("{}")
+  createdAt  DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  document   Document                    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tenant     Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   traces     QueryTrace[]
+
   @@unique([documentId, ordinal])
   @@index([tenantId, documentId])
   @@map("chunks")
@@ -113,6 +128,7 @@ model Query {
   user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   traces           QueryTrace[]
   feedback         Feedback?
+
   @@index([tenantId, createdAt])
   @@map("queries")
 }
@@ -131,6 +147,7 @@ model QueryTrace {
   query     Query    @relation(fields: [queryId], references: [id], onDelete: Cascade)
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   chunk     Chunk?   @relation(fields: [chunkId], references: [id], onDelete: SetNull)
+
   @@index([queryId, createdAt])
   @@map("query_traces")
 }
@@ -144,6 +161,7 @@ model Feedback {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   query     Query    @relation(fields: [queryId], references: [id], onDelete: Cascade)
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
   @@map("feedback")
 }
 
@@ -157,6 +175,7 @@ model Connector {
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
   tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
   @@index([tenantId, createdAt])
   @@map("connectors")
 }
@@ -170,19 +189,21 @@ model Ticket {
   status    String   @default("open")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
   @@index([tenantId, createdAt])
   @@map("tickets")
 }
 
 model SemanticCache {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId  String   @map("tenant_id") @db.Uuid
+  id        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String                      @map("tenant_id") @db.Uuid
   question  String
   answer    String
-  citations Json     @default("[]")
+  citations Json                        @default("[]")
   embedding Unsupported("vector(384)")?
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt DateTime                    @map("expires_at") @db.Timestamptz(6)
+  tenant    Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
   @@map("semantic_cache")
 }

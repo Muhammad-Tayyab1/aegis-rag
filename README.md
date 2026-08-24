@@ -19,7 +19,7 @@ Naive RAG fails silently: weak context goes into a model, a confident answer com
 
 ## Features
 
-- JWT access and rotating/revocable refresh tokens, Argon2 password hashing, roles, global and per-tenant rate limits.
+- JWT access and rotating/revocable refresh tokens, Argon2 password hashing, roles, global IP throttling, and PostgreSQL-backed per-tenant rate limits shared across replicas.
 - Tenant-scoped Prisma transactions backed by PostgreSQL row-level security.
 - Restricted runtime database role plus integration tests proving raw reads and writes cannot cross tenants.
 - TXT, Markdown, CSV, JSON, PDF, and DOCX ingestion with version replacement.
