@@ -10,6 +10,7 @@ import { LlmService } from "./llm.service";
 import { TenantRateLimitGuard } from "../common/tenant/tenant-rate-limit.guard";
 import { SemanticCacheService } from "./semantic-cache.service";
 import { estimatedTokens } from "./usage-cost";
+import { traceSequence } from "../tracing/trace-order";
 class Ask {
   @IsString() question!: string;
 }
@@ -26,16 +27,19 @@ export class ChatController {
     const cached = await this.cache.find(u.tenantId, b.question);
     let hits = cached ? [] : await this.r.search(u.tenantId, b.question);
     let rerouted = false;
+    let rerouteLatencyMs = 0;
+    let reformulatedQuestion = "";
     if (!cached && (!hits.length || hits[0].score < 0.02)) {
       rerouted = true;
-      hits = await this.r.search(
-        u.tenantId,
-        `${b.question} detailed policy procedure`,
-      );
+      reformulatedQuestion = `${b.question} detailed policy procedure`;
+      const rerouteStarted = performance.now();
+      hits = await this.r.search(u.tenantId, reformulatedQuestion);
+      rerouteLatencyMs = Math.round(performance.now() - rerouteStarted);
     }
     const ticketMatch = b.question.match(
       /(?:file|create|open)\s+(?:a\s+)?(?:bug|ticket)(?:\s+for)?\s+(.+)/i,
     );
+    const generationStarted = performance.now();
     const generation = cached
       ? {
           text: cached.answer,
@@ -55,6 +59,9 @@ export class ChatController {
             estimatedCostUsd: 0,
           }
         : await this.llm.answer(b.question, hits);
+    const generationLatencyMs = Math.round(
+      performance.now() - generationStarted,
+    );
     const answer = generation.text;
     return this.p.withTenant(u.tenantId, async (tx) => {
       const q = await tx.query.create({
@@ -83,6 +90,7 @@ export class ChatController {
             tenantId: u.tenantId,
             queryId: q.id,
             stage: "tool:create_ticket",
+            sequence: traceSequence("tool:create_ticket"),
             latencyMs: 0,
             details: { ticketId: ticket.id, priority: ticket.priority },
           },
@@ -94,8 +102,13 @@ export class ChatController {
             tenantId: u.tenantId,
             queryId: q.id,
             stage: "reroute",
-            latencyMs: 0,
-            details: { reason: "weak initial context" },
+            sequence: traceSequence("reroute"),
+            latencyMs: rerouteLatencyMs,
+            details: {
+              reason: "weak initial context",
+              originalQuestion: b.question,
+              reformulatedQuestion,
+            },
           },
         });
       if (cached)
@@ -104,6 +117,7 @@ export class ChatController {
             tenantId: u.tenantId,
             queryId: q.id,
             stage: "semantic_cache",
+            sequence: traceSequence("semantic_cache"),
             latencyMs: 0,
             score: cached.similarity,
             details: {
@@ -112,12 +126,28 @@ export class ChatController {
             },
           },
         });
+      await tx.queryTrace.createMany({
+        data: hits.flatMap((h) =>
+          (h.stages ?? ["fusion"]).map((stage) => ({
+            tenantId: u.tenantId,
+            queryId: q.id,
+            stage,
+            sequence: traceSequence(stage),
+            chunkId: h.id,
+            rank: h.rank,
+            score: h.score,
+            latencyMs: h.stageLatencies?.[stage] ?? 0,
+            details: { filename: h.filename },
+          })),
+        ),
+      });
       await tx.queryTrace.create({
         data: {
           tenantId: u.tenantId,
           queryId: q.id,
           stage: "generation",
-          latencyMs: 0,
+          sequence: traceSequence("generation"),
+          latencyMs: generationLatencyMs,
           details: {
             provider: generation.provider,
             model: generation.model,
@@ -128,20 +158,6 @@ export class ChatController {
               "fallbackReasons" in generation ? generation.fallbackReasons : [],
           },
         },
-      });
-      await tx.queryTrace.createMany({
-        data: hits.flatMap((h) =>
-          [...(h.stages ?? ["fusion"]), "rerank"].map((stage) => ({
-            tenantId: u.tenantId,
-            queryId: q.id,
-            stage,
-            chunkId: h.id,
-            rank: h.rank,
-            score: h.score,
-            latencyMs: h.stageLatencies?.[stage] ?? 0,
-            details: { filename: h.filename },
-          })),
-        ),
       });
       const citations = hits.map((h) => ({
         chunkId: h.id,

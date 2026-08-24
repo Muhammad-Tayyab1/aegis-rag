@@ -9,10 +9,11 @@ type Trace = {
   traces: {
     id: string;
     stage: string;
+    sequence: number;
     rank?: number;
     score?: number;
     latencyMs: number;
-    details?: { filename?: string };
+    details?: Record<string, unknown> & { filename?: string };
     chunk?: { content: string; document?: { filename: string } };
   }[];
 };
@@ -74,6 +75,9 @@ export default function Traces() {
                         "Retrieval event"}
                     </p>
                     {t.chunk && <small>{t.chunk.content.slice(0, 280)}</small>}
+                    {t.details && Object.keys(t.details).length > 0 && (
+                      <pre>{JSON.stringify(t.details, null, 2)}</pre>
+                    )}
                   </article>
                 ))}
               </>

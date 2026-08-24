@@ -153,6 +153,7 @@ model QueryTrace {
   queryId   String   @map("query_id") @db.Uuid
   tenantId  String   @map("tenant_id") @db.Uuid
   stage     String
+  sequence  Int      @default(0)
   chunkId   String?  @map("chunk_id") @db.Uuid
   rank      Int?
   score     Decimal? @db.Decimal
@@ -164,6 +165,7 @@ model QueryTrace {
   chunk     Chunk?   @relation(fields: [chunkId], references: [id], onDelete: SetNull)
 
   @@index([queryId, createdAt])
+  @@index([queryId, sequence, rank])
   @@map("query_traces")
 }
 

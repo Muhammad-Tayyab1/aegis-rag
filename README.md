@@ -13,7 +13,7 @@ Naive RAG fails silently: weak context goes into a model, a confident answer com
 - Hybrid retrieval catches both conceptual matches and exact identifiers such as `IPC-104`.
 - Reranking promotes the strongest evidence before generation.
 - Citations show the document and exact snippet behind an answer.
-- Retrieval traces expose candidates, stages, ranks, scores, reroutes, and latency.
+- Retrieval traces expose only executed stages, candidates, ranks, scores, reformulated queries, provider fallbacks, and measured latency.
 - Feedback, golden-question evaluation, usage tracking, and answer caching support an improvement loop.
 - PostgreSQL row-level security prevents one tenant from reading another tenant’s data.
 

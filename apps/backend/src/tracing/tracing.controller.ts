@@ -15,7 +15,12 @@ export class TracingController {
       tx.query.findMany({
         orderBy: { createdAt: "desc" },
         take: 50,
-        include: { traces: true },
+        include: {
+          traces: {
+            orderBy: [{ sequence: "asc" }, { rank: "asc" }],
+            include: { chunk: { include: { document: true } } },
+          },
+        },
       }),
     );
   }
@@ -27,7 +32,10 @@ export class TracingController {
       tx.query.findFirst({
         where: { id },
         include: {
-          traces: { include: { chunk: { include: { document: true } } } },
+          traces: {
+            orderBy: [{ sequence: "asc" }, { rank: "asc" }],
+            include: { chunk: { include: { document: true } } },
+          },
         },
       }),
     );

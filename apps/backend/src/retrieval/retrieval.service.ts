@@ -11,6 +11,11 @@ export type Hit = {
   stages?: string[];
   stageLatencies?: Record<string, number>;
 };
+export const markReranked = (hit: Hit, latencyMs: number): Hit => ({
+  ...hit,
+  stages: [...new Set([...(hit.stages ?? []), "rerank"])],
+  stageLatencies: { ...hit.stageLatencies, rerank: latencyMs },
+});
 export const embed = (text: string) => {
   const v = Array(384).fill(0);
   for (let i = 0; i < text.length; i++)
@@ -116,10 +121,7 @@ export class RetrievalService {
       const rerankStarted = performance.now();
       const reranked: Hit[] = await this.rerank(q, fused);
       const rerankMs = Math.round(performance.now() - rerankStarted);
-      return reranked.map((hit) => ({
-        ...hit,
-        stageLatencies: { ...hit.stageLatencies, rerank: rerankMs },
-      }));
+      return reranked.map((hit) => markReranked(hit, rerankMs));
     });
   }
 }

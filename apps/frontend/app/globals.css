@@ -252,6 +252,15 @@ textarea {
 .trace-stage p {
   margin: 8px 0;
 }
+.trace-stage pre {
+  overflow: auto;
+  padding: 10px;
+  border-radius: 6px;
+  background: #10151a0a;
+  color: var(--muted);
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+}
 @media (max-width: 700px) {
   .trace-grid {
     grid-template-columns: 1fr;
