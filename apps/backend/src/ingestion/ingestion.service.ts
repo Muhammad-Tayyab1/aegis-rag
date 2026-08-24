@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { PrismaService } from "../common/database/prisma.service";
 import { embed } from "../retrieval/retrieval.service";
 import { createHash } from "node:crypto";
+import { sanitizeIngestedContent } from "./ingestion-security";
 @Injectable()
 export class IngestionService {
   constructor(private readonly prisma: PrismaService) {}
@@ -43,6 +44,7 @@ export class IngestionService {
     sourceType = "file",
     sourceUri?: string,
   ) {
+    content = sanitizeIngestedContent(content);
     return this.prisma.withTenant(tenantId, async (tx) => {
       const config = await tx.tenantConfig.findUnique({ where: { tenantId } });
       const chunkSize = config?.chunkSize ?? 800;

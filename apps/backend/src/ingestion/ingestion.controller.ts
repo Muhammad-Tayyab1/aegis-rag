@@ -17,6 +17,7 @@ import { CurrentUser } from "../common/tenant/current-user.decorator";
 import { AuthenticatedUser } from "../common/tenant/tenant.types";
 import { IngestionService } from "./ingestion.service";
 import { TenantRateLimitGuard } from "../common/tenant/tenant-rate-limit.guard";
+import { validateUpload } from "./ingestion-security";
 @UseGuards(AuthGuard("jwt"), TenantRateLimitGuard)
 @Controller("documents")
 export class IngestionController {
@@ -39,29 +40,14 @@ export class IngestionController {
     @CurrentUser() u: AuthenticatedUser,
   ) {
     if (!f) throw new BadRequestException("file required");
-    const ext = f.originalname.toLowerCase().split(".").pop();
+    const { filename, extension: ext } = validateUpload(f);
     let content: string;
     if (ext === "pdf") content = (await pdf(f.buffer)).text;
     else if (ext === "docx")
       content = (await mammoth.extractRawText({ buffer: f.buffer })).value;
     else if (["txt", "md", "csv", "json"].includes(ext ?? ""))
       content = f.buffer.toString();
-    else
-      throw new BadRequestException(
-        "Supported formats: PDF, DOCX, TXT, MD, CSV, JSON",
-      );
-    if (
-      /ignore\s+(all|previous)\s+instructions|system\s+prompt|reveal\s+(your|the)\s+prompt/i.test(
-        content,
-      )
-    ) {
-      throw new BadRequestException(
-        "Document contains a blocked prompt-injection pattern",
-      );
-    }
-    content = content
-      .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[REDACTED_EMAIL]")
-      .replace(/(?:\+?\d[\d\s().-]{8,}\d)/g, "[REDACTED_PHONE]");
-    return this.s.ingest(u.tenantId, f.originalname, content, "file");
+    else throw new BadRequestException("Unsupported document type");
+    return this.s.ingest(u.tenantId, filename, content, "file");
   }
 }

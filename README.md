@@ -23,7 +23,7 @@ Naive RAG fails silently: weak context goes into a model, a confident answer com
 - Tenant-scoped Prisma transactions backed by PostgreSQL row-level security.
 - Restricted runtime database role plus integration tests proving raw reads and writes cannot cross tenants.
 - TXT, Markdown, CSV, JSON, PDF, and DOCX ingestion with version replacement.
-- Basic email/phone redaction and prompt-injection pattern rejection during file ingestion.
+- Centralized email/phone redaction and prompt-injection rejection for files and every connector source, plus upload MIME/signature validation.
 - REST API, read-only PostgreSQL, and bounded website/sitemap connectors with scheduled sync.
 - Deterministic local embeddings, pgvector similarity search, PostgreSQL full-text search, and reciprocal-rank fusion.
 - Optional Cohere reranking with a free lexical fallback.
