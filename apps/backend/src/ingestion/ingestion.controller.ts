@@ -25,6 +25,14 @@ export class IngestionController {
   @Get() list(@CurrentUser() u: AuthenticatedUser) {
     return this.s.list(u.tenantId);
   }
+  @Get(":documentId/chunks/:chunkId")
+  chunk(
+    @Param("documentId") documentId: string,
+    @Param("chunkId") chunkId: string,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.s.chunkById(u.tenantId, documentId, chunkId);
+  }
   @Delete(":id") remove(
     @Param("id") id: string,
     @CurrentUser() u: AuthenticatedUser,

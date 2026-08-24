@@ -1,6 +1,10 @@
 import { Hit } from "../../retrieval/retrieval.service";
 
-export type LlmRequest = { question: string; hits: Hit[] };
+export type LlmRequest = {
+  question: string;
+  hits: Hit[];
+  onToken?: (token: string) => void | Promise<void>;
+};
 
 export type LlmResult = {
   text: string;

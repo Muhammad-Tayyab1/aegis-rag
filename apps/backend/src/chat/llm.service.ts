@@ -12,13 +12,17 @@ export class LlmService {
     this.providers = [groq, local];
   }
 
-  async answer(question: string, hits: Hit[]) {
+  async answer(
+    question: string,
+    hits: Hit[],
+    onToken?: (token: string) => void | Promise<void>,
+  ) {
     const fallbackReasons: string[] = [];
     for (const provider of this.providers) {
       if (!provider.isConfigured()) continue;
       try {
         return {
-          ...(await provider.generate({ question, hits })),
+          ...(await provider.generate({ question, hits, onToken })),
           fallbackReasons,
         };
       } catch (error) {

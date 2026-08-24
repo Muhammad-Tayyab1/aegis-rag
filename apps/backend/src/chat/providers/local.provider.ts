@@ -15,11 +15,12 @@ export class LocalProvider implements LlmProvider {
     return true;
   }
 
-  async generate({ question, hits }: LlmRequest): Promise<LlmResult> {
+  async generate({ question, hits, onToken }: LlmRequest): Promise<LlmResult> {
     const context = requestContext(hits);
     const text = context
       ? context.slice(0, 3000)
       : "I could not find relevant information in this workspace.";
+    if (onToken) for (const token of text.split(/(\s+)/)) await onToken(token);
     return {
       text,
       provider: this.name,

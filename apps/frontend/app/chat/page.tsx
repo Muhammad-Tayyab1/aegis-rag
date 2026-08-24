@@ -97,10 +97,14 @@ export default function Chat() {
             </p>
           )}
           {c.map((x) => (
-            <article className="trace-stage" key={x.chunkId}>
+            <a
+              className="trace-stage citation-card"
+              key={x.chunkId}
+              href={`/documents/${x.documentId}/chunks/${x.chunkId}`}
+            >
               <strong>{x.document}</strong>
               <small>{x.snippet}</small>
-            </article>
+            </a>
           ))}
         </div>
       </section>

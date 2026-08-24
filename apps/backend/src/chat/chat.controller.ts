@@ -23,7 +23,11 @@ export class ChatController {
     private llm: LlmService,
     private cache: SemanticCacheService,
   ) {}
-  private async context(b: Ask, u: AuthenticatedUser) {
+  private async context(
+    b: Ask,
+    u: AuthenticatedUser,
+    onToken?: (token: string) => void | Promise<void>,
+  ) {
     const cached = await this.cache.find(u.tenantId, b.question);
     let hits = cached ? [] : await this.r.search(u.tenantId, b.question);
     let rerouted = false;
@@ -58,7 +62,9 @@ export class ChatController {
             outputTokens: estimatedTokens(`Ticket created: ${ticketMatch[1]}`),
             estimatedCostUsd: 0,
           }
-        : await this.llm.answer(b.question, hits);
+        : await this.llm.answer(b.question, hits, onToken);
+    if (onToken && (cached || ticketMatch))
+      for (const token of generation.text.split(/(\s+)/)) await onToken(token);
     const generationLatencyMs = Math.round(
       performance.now() - generationStarted,
     );
@@ -161,6 +167,7 @@ export class ChatController {
       });
       const citations = hits.map((h) => ({
         chunkId: h.id,
+        documentId: h.documentId,
         document: h.filename,
         snippet: h.content.slice(0, 240),
       }));
@@ -185,11 +192,9 @@ export class ChatController {
     @Res() res: Response,
   ) {
     res.flushHeaders();
-    const result = await this.context(b, u);
-    for (const token of result.answer.split(/(\s+)/)) {
+    const result = await this.context(b, u, async (token) => {
       res.write(`event: token\ndata: ${JSON.stringify({ token })}\n\n`);
-      await new Promise((r) => setTimeout(r, 8));
-    }
+    });
     res.write(
       `event: citations\ndata: ${JSON.stringify({ queryId: result.queryId, citations: result.citations })}\n\n`,
     );

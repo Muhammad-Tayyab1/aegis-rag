@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../common/database/prisma.service";
 import { embed } from "../retrieval/embedding";
@@ -29,6 +29,22 @@ export class IngestionService {
         await tx.semanticCache.deleteMany({ where: { tenantId } });
       return removed;
     });
+  }
+  async chunkById(tenantId: string, documentId: string, chunkId: string) {
+    const chunk = await this.prisma.withTenant(tenantId, (tx) =>
+      tx.chunk.findFirst({
+        where: { id: chunkId, documentId, tenantId },
+        include: { document: { select: { filename: true } } },
+      }),
+    );
+    if (!chunk) throw new NotFoundException("Chunk not found");
+    return {
+      id: chunk.id,
+      documentId: chunk.documentId,
+      filename: chunk.document.filename,
+      ordinal: chunk.ordinal,
+      content: chunk.content,
+    };
   }
   chunk(text: string, size = 800, overlap = 100) {
     const words = text.replace(/\s+/g, " ").trim().split(" ");

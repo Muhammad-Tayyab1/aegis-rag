@@ -21,7 +21,7 @@ export class GroqProvider implements LlmProvider {
     return Boolean(process.env.GROQ_API_KEY);
   }
 
-  async generate({ question, hits }: LlmRequest): Promise<LlmResult> {
+  async generate({ question, hits, onToken }: LlmRequest): Promise<LlmResult> {
     const context = requestContext(hits);
     let response: Response;
     try {
@@ -48,6 +48,8 @@ export class GroqProvider implements LlmProvider {
               },
             ],
             temperature: 0.1,
+            stream: Boolean(onToken),
+            stream_options: onToken ? { include_usage: true } : undefined,
           }),
         },
       );
@@ -64,6 +66,57 @@ export class GroqProvider implements LlmProvider {
         response.status,
         response.headers.get("retry-after") ?? undefined,
       );
+    if (onToken) {
+      if (!response.body)
+        throw new LlmProviderError(this.name, "stream contained no body");
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let text = "";
+      let usage: any;
+      while (true) {
+        const { value, done } = await reader.read();
+        buffer += decoder.decode(value, { stream: !done });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data:")) continue;
+          const data = line.slice(5).trim();
+          if (!data || data === "[DONE]") continue;
+          const event = JSON.parse(data);
+          usage = event.usage ?? usage;
+          const token = event.choices?.[0]?.delta?.content;
+          if (typeof token === "string" && token) {
+            text += token;
+            await onToken(token);
+          }
+        }
+        if (done) break;
+      }
+      if (!text.trim())
+        throw new LlmProviderError(this.name, "stream contained no answer");
+      const inputTokens = normalizedTokenCount(
+        usage?.prompt_tokens,
+        estimatedTokens(question + context),
+      );
+      const outputTokens = normalizedTokenCount(
+        usage?.completion_tokens,
+        estimatedTokens(text),
+      );
+      return {
+        text,
+        provider: this.name,
+        model: process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
+        inputTokens,
+        outputTokens,
+        estimatedCostUsd: estimateCostUsd(
+          inputTokens,
+          outputTokens,
+          configuredRate(process.env.GROQ_INPUT_USD_PER_MILLION_TOKENS),
+          configuredRate(process.env.GROQ_OUTPUT_USD_PER_MILLION_TOKENS),
+        ),
+      };
+    }
     const body = (await response.json()) as any;
     const text = body.choices?.[0]?.message?.content;
     if (typeof text !== "string" || !text.trim())
