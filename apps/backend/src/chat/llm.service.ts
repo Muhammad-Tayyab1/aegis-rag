@@ -73,12 +73,25 @@ export class LlmService {
     const fallbackReasons: string[] = [];
     for (const provider of this.providers) {
       if (!provider.isConfigured()) continue;
+      let emitted = false;
       try {
         return {
-          ...(await provider.generate({ question, hits, onToken })),
+          ...(await provider.generate({
+            question,
+            hits,
+            onToken: onToken
+              ? async (token) => {
+                  emitted = true;
+                  await onToken(token);
+                }
+              : undefined,
+          })),
           fallbackReasons,
         };
       } catch (error) {
+        // Once bytes have reached the client, falling back would concatenate
+        // two providers into one corrupt answer stream.
+        if (emitted) throw error;
         const detail =
           error instanceof LlmProviderError
             ? [error.message, error.status, error.retryAfter]

@@ -22,6 +22,11 @@ export default function Chat() {
       },
       body: JSON.stringify({ question: q }),
     });
+    if (!r.ok) {
+      setA("Unable to start the answer stream.");
+      setBusy(false);
+      return;
+    }
     const reader = r.body?.getReader();
     if (!reader) return;
     const decoder = new TextDecoder();
@@ -32,7 +37,9 @@ export default function Chat() {
         .then((v) => ({ x: v.value, done: v.done }));
       if (done) break;
       buffer += decoder.decode(x);
-      for (const event of buffer.split("\n\n").slice(0, -1)) {
+      const events = buffer.split("\n\n");
+      buffer = events.pop() ?? "";
+      for (const event of events) {
         const line = event.split("\n").find((v) => v.startsWith("data:"));
         if (!line) continue;
         const data = JSON.parse(line.slice(5));
@@ -41,6 +48,8 @@ export default function Chat() {
           setC(data.citations);
           setQueryId(data.queryId);
         }
+        if (event.includes("event: error"))
+          setA((value) => value || data.message);
       }
     }
     setBusy(false);

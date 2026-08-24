@@ -68,4 +68,28 @@ describe("LLM provider fallback", () => {
     expect((await service.answer("question", [])).provider).toBe("local");
     expect(primary.generate).not.toHaveBeenCalled();
   });
+
+  it("does not concatenate a fallback after streaming has started", async () => {
+    const primary: LlmProvider = {
+      name: "primary",
+      isConfigured: () => true,
+      generate: async ({ onToken }) => {
+        await onToken?.("partial");
+        throw new LlmProviderError("primary", "stream interrupted");
+      },
+    };
+    const local: LlmProvider = {
+      name: "local",
+      isConfigured: () => true,
+      generate: jest.fn(async () => result("local")),
+    };
+    const service = new LlmService(
+      primary as GroqProvider,
+      local as LocalProvider,
+    );
+    await expect(service.answer("question", [], jest.fn())).rejects.toThrow(
+      "stream interrupted",
+    );
+    expect(local.generate).not.toHaveBeenCalled();
+  });
 });

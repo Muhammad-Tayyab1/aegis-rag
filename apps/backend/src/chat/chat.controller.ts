@@ -213,13 +213,20 @@ export class ChatController {
     @Res() res: Response,
   ) {
     res.flushHeaders();
-    const result = await this.context(b, u, async (token) => {
-      res.write(`event: token\ndata: ${JSON.stringify({ token })}\n\n`);
-    });
-    res.write(
-      `event: citations\ndata: ${JSON.stringify({ queryId: result.queryId, citations: result.citations })}\n\n`,
-    );
-    res.write("event: done\ndata: {}\n\n");
-    res.end();
+    try {
+      const result = await this.context(b, u, async (token) => {
+        res.write(`event: token\ndata: ${JSON.stringify({ token })}\n\n`);
+      });
+      res.write(
+        `event: citations\ndata: ${JSON.stringify({ queryId: result.queryId, citations: result.citations })}\n\n`,
+      );
+      res.write("event: done\ndata: {}\n\n");
+    } catch {
+      res.write(
+        `event: error\ndata: ${JSON.stringify({ message: "Answer stream failed" })}\n\n`,
+      );
+    } finally {
+      res.end();
+    }
   }
 }

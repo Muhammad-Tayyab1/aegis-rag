@@ -178,6 +178,8 @@ npm run lint
 npm run build
 ```
 
+The integration command is intentionally not reported as passing when Docker/PostgreSQL is unavailable. Start Docker first, apply migrations to `TEST_DATABASE_URL`, and run it before a release.
+
 ## Deploying against a client’s existing PostgreSQL instance
 
 1. Confirm PostgreSQL supports the `vector` extension and that the deployment user may enable it.
