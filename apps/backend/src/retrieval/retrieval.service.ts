@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../common/database/prisma.service";
 import { embed } from "./embedding";
+import { crossEncoderScores } from "./local-cross-encoder";
 export { embed } from "./embedding";
 export type Hit = {
   id: string;
@@ -14,6 +15,8 @@ export type Hit = {
   stageScores?: Record<string, number>;
   stageRanks?: Record<string, number>;
   stageLatencies?: Record<string, number>;
+  rerankProvider?: string;
+  traceAttempt?: "initial" | "reformulated";
 };
 export const markReranked = (hit: Hit, latencyMs: number): Hit => ({
   ...hit,
@@ -44,13 +47,31 @@ export class RetrievalService {
         });
         if (r.ok) {
           const b = (await r.json()) as any;
-          return (b.results ?? []).map((x: any) => ({
+          return (b.results ?? []).map((x: any, rank: number) => ({
             ...hits[x.index],
             score: x.relevance_score,
-            rank: x.index + 1,
+            rank: rank + 1,
+            rerankProvider: "cohere",
           }));
         }
       } catch {}
+    try {
+      const scores = await crossEncoderScores(
+        q,
+        hits.map((hit) => hit.content),
+      );
+      return hits
+        .map((hit, index) => ({
+          ...hit,
+          score: scores[index],
+          rerankProvider: "local-cross-encoder",
+        }))
+        .sort((a, b) => b.score - a.score)
+        .map((hit, index) => ({ ...hit, rank: index + 1 }));
+    } catch {
+      // Keep offline deployments usable if the configured model is not cached.
+      // The trace names this emergency fallback so it cannot be mistaken for ML.
+    }
     const terms = q.toLowerCase().split(/\W+/).filter(Boolean);
     return hits
       .map((h) => ({
@@ -58,6 +79,7 @@ export class RetrievalService {
         score:
           h.score +
           terms.filter((t) => h.content.toLowerCase().includes(t)).length * 0.1,
+        rerankProvider: "lexical-emergency-fallback",
       }))
       .sort((a, b) => b.score - a.score)
       .map((h, i) => ({ ...h, rank: i + 1 }));

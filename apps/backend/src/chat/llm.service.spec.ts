@@ -17,6 +17,16 @@ const result = (provider: string): LlmResult => ({
 });
 
 describe("LLM provider fallback", () => {
+  afterEach(() => delete process.env.GROQ_API_KEY);
+
+  it("uses an explicit local routing fallback without a hosted classifier", async () => {
+    const service = new LlmService({} as GroqProvider, {} as LocalProvider);
+    await expect(service.route("What is the procedure?", [])).resolves.toEqual({
+      sufficient: false,
+      reformulatedQuestion: "What is the procedure? detailed policy procedure",
+      classifier: "score-fallback",
+    });
+  });
   it("falls back after a configured provider is rate limited", async () => {
     const primary: LlmProvider = {
       name: "primary",

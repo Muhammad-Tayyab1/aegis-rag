@@ -5,7 +5,7 @@ import { Response } from "express";
 import { CurrentUser } from "../common/tenant/current-user.decorator";
 import { AuthenticatedUser } from "../common/tenant/tenant.types";
 import { PrismaService } from "../common/database/prisma.service";
-import { RetrievalService } from "../retrieval/retrieval.service";
+import { Hit, RetrievalService } from "../retrieval/retrieval.service";
 import { LlmService } from "./llm.service";
 import { TenantRateLimitGuard } from "../common/tenant/tenant-rate-limit.guard";
 import { SemanticCacheService } from "./semantic-cache.service";
@@ -30,14 +30,28 @@ export class ChatController {
   ) {
     const cached = await this.cache.find(u.tenantId, b.question);
     let hits = cached ? [] : await this.r.search(u.tenantId, b.question);
+    let traceHits: Hit[] = hits.map((hit) => ({
+      ...hit,
+      traceAttempt: "initial" as const,
+    }));
     let rerouted = false;
     let rerouteLatencyMs = 0;
     let reformulatedQuestion = "";
-    if (!cached && (!hits.length || hits[0].score < 0.02)) {
+    const route = cached
+      ? { sufficient: true, reformulatedQuestion: "", classifier: "cache" }
+      : await this.llm.route(b.question, hits);
+    if (!cached && !route.sufficient) {
       rerouted = true;
-      reformulatedQuestion = `${b.question} detailed policy procedure`;
+      reformulatedQuestion = route.reformulatedQuestion;
       const rerouteStarted = performance.now();
       hits = await this.r.search(u.tenantId, reformulatedQuestion);
+      traceHits = [
+        ...traceHits,
+        ...hits.map((hit) => ({
+          ...hit,
+          traceAttempt: "reformulated" as const,
+        })),
+      ];
       rerouteLatencyMs = Math.round(performance.now() - rerouteStarted);
     }
     const ticketMatch = b.question.match(
@@ -112,6 +126,7 @@ export class ChatController {
             latencyMs: rerouteLatencyMs,
             details: {
               reason: "weak initial context",
+              classifier: route.classifier,
               originalQuestion: b.question,
               reformulatedQuestion,
             },
@@ -133,7 +148,7 @@ export class ChatController {
           },
         });
       await tx.queryTrace.createMany({
-        data: hits.flatMap((h) =>
+        data: traceHits.flatMap((h) =>
           (h.stages ?? ["fusion"]).map((stage) => ({
             tenantId: u.tenantId,
             queryId: q.id,
@@ -143,7 +158,13 @@ export class ChatController {
             rank: h.stageRanks?.[stage] ?? h.rank,
             score: h.stageScores?.[stage] ?? h.score,
             latencyMs: h.stageLatencies?.[stage] ?? 0,
-            details: { filename: h.filename },
+            details: {
+              filename: h.filename,
+              attempt: h.traceAttempt ?? "initial",
+              ...(stage === "rerank"
+                ? { provider: h.rerankProvider ?? "unknown" }
+                : {}),
+            },
           })),
         ),
       });
