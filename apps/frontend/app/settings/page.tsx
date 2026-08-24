@@ -12,7 +12,7 @@ export default function Settings() {
   const [form, setForm] = useState<Config>({
     chunkSize: 800,
     chunkOverlap: 100,
-    embeddingModel: "all-MiniLM-L6-v2",
+    embeddingModel: "aegis-hash-384",
     retrievalStrategy: "hybrid",
     rerankEnabled: true,
   });
@@ -72,12 +72,16 @@ export default function Settings() {
           </label>
           <label>
             Embedding model
-            <input
+            <select
               value={form.embeddingModel}
               onChange={(e) =>
                 setForm({ ...form, embeddingModel: e.target.value })
               }
-            />
+            >
+              <option value="aegis-hash-384">
+                Aegis Hash 384 (local, free)
+              </option>
+            </select>
           </label>
           <label>
             Retrieval strategy

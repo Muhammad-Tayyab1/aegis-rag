@@ -1,6 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../common/database/prisma.service";
+import { embed } from "./embedding";
+export { embed } from "./embedding";
 export type Hit = {
   id: string;
   documentId: string;
@@ -20,13 +22,6 @@ export const markReranked = (hit: Hit, latencyMs: number): Hit => ({
   stageRanks: { ...hit.stageRanks, rerank: hit.rank ?? 0 },
   stageLatencies: { ...hit.stageLatencies, rerank: latencyMs },
 });
-export const embed = (text: string) => {
-  const v = Array(384).fill(0);
-  for (let i = 0; i < text.length; i++)
-    v[(text.charCodeAt(i) * 31 + i) % 384] += (text.charCodeAt(i) % 17) / 17;
-  const n = Math.hypot(...v) || 1;
-  return v.map((x) => x / n);
-};
 @Injectable()
 export class RetrievalService {
   constructor(private prisma: PrismaService) {}
@@ -68,11 +63,11 @@ export class RetrievalService {
       .map((h, i) => ({ ...h, rank: i + 1 }));
   }
   async search(t: string, q: string, limit = 8): Promise<Hit[]> {
-    const e = `[${embed(q).join(",")}]`;
     return this.prisma.withTenant(t, async (tx) => {
       const config = await tx.tenantConfig.findUnique({
         where: { tenantId: t },
       });
+      const e = `[${embed(q, config?.embeddingModel).join(",")}]`;
       const strategy = config?.retrievalStrategy ?? "hybrid";
       const timed = async (run: Promise<Hit[]>) => {
         const started = performance.now();

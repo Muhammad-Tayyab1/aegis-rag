@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../common/database/prisma.service";
-import { embed } from "../retrieval/retrieval.service";
+import { embed } from "../retrieval/embedding";
 import { createHash } from "node:crypto";
 import { sanitizeIngestedContent } from "./ingestion-security";
 @Injectable()
@@ -71,7 +71,7 @@ export class IngestionService {
         chunkSize,
         chunkOverlap,
       ).entries()) {
-        const vector = `[${embed(text).join(",")}]`;
+        const vector = `[${embed(text, config?.embeddingModel).join(",")}]`;
         await tx.$executeRaw(
           Prisma.sql`INSERT INTO chunks (document_id,tenant_id,ordinal,content,embedding) VALUES (${doc.id}::uuid,${tenantId}::uuid,${ordinal},${text},${vector}::vector)`,
         );

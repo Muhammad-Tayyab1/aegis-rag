@@ -1,23 +1,16 @@
 import { Body, Controller, Get, Patch, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
-import {
-  IsBoolean,
-  IsIn,
-  IsInt,
-  IsOptional,
-  IsString,
-  Max,
-  Min,
-} from "class-validator";
+import { IsBoolean, IsIn, IsInt, IsOptional, Max, Min } from "class-validator";
 import { Roles } from "../auth/roles.decorator";
 import { RolesGuard } from "../auth/roles.guard";
 import { CurrentUser } from "../common/tenant/current-user.decorator";
 import { AuthenticatedUser } from "../common/tenant/tenant.types";
 import { TenantsService } from "./tenants.service";
+import { SUPPORTED_EMBEDDING_MODEL } from "../retrieval/embedding";
 class UpdateConfigDto {
   @IsOptional() @IsInt() @Min(100) @Max(5000) chunkSize?: number;
   @IsOptional() @IsInt() @Min(0) @Max(1000) chunkOverlap?: number;
-  @IsOptional() @IsString() embeddingModel?: string;
+  @IsOptional() @IsIn([SUPPORTED_EMBEDDING_MODEL]) embeddingModel?: string;
   @IsOptional()
   @IsIn(["vector", "keyword", "hybrid"])
   retrievalStrategy?: string;

@@ -9,6 +9,11 @@ describe("embedding fallback", () => {
   it("changes with input text", () => {
     expect(embed("one")).not.toEqual(embed("two"));
   });
+  it("rejects unsupported model identifiers", () => {
+    expect(() => embed("one", "all-MiniLM-L6-v2")).toThrow(
+      "Unsupported embedding model: all-MiniLM-L6-v2",
+    );
+  });
 });
 
 describe("retrieval trace provenance", () => {

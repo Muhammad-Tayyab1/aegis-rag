@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../common/database/prisma.service";
-import { embed } from "../retrieval/retrieval.service";
+import { embed } from "../retrieval/embedding";
 
 export type SemanticCacheHit = {
   id: string;
@@ -26,11 +26,15 @@ export class SemanticCacheService {
   constructor(private readonly prisma: PrismaService) {}
 
   find(tenantId: string, question: string) {
-    const vector = `[${embed(question).join(",")}]`;
     const threshold = cacheSimilarityThreshold(
       process.env.SEMANTIC_CACHE_SIMILARITY,
     );
     return this.prisma.withTenant(tenantId, async (tx) => {
+      const config = await tx.tenantConfig.findUnique({
+        where: { tenantId },
+        select: { embeddingModel: true },
+      });
+      const vector = `[${embed(question, config?.embeddingModel).join(",")}]`;
       const rows = await tx.$queryRaw<SemanticCacheHit[]>(
         Prisma.sql`SELECT id, question, answer, citations,
           (1 - (embedding <=> ${vector}::vector))::float AS similarity
@@ -53,18 +57,23 @@ export class SemanticCacheService {
     citations: Array<Record<string, string>>,
     transaction?: Prisma.TransactionClient,
   ) {
-    const vector = `[${embed(question).join(",")}]`;
     const expiresAt = new Date(
       Date.now() +
         cacheTtlHours(process.env.SEMANTIC_CACHE_TTL_HOURS) * 3600000,
     );
-    const insert = (tx: Prisma.TransactionClient) =>
-      tx.$executeRaw(
+    const insert = async (tx: Prisma.TransactionClient) => {
+      const config = await tx.tenantConfig.findUnique({
+        where: { tenantId },
+        select: { embeddingModel: true },
+      });
+      const vector = `[${embed(question, config?.embeddingModel).join(",")}]`;
+      return tx.$executeRaw(
         Prisma.sql`INSERT INTO semantic_cache
           (tenant_id, question, answer, citations, embedding, expires_at)
           VALUES (${tenantId}::uuid, ${question}, ${answer},
             ${JSON.stringify(citations)}::jsonb, ${vector}::vector, ${expiresAt})`,
       );
+    };
     return transaction
       ? insert(transaction)
       : this.prisma.withTenant(tenantId, insert);

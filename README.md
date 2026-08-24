@@ -25,7 +25,7 @@ Naive RAG fails silently: weak context goes into a model, a confident answer com
 - TXT, Markdown, CSV, JSON, PDF, and DOCX ingestion with version replacement.
 - Centralized email/phone redaction and prompt-injection rejection for files and every connector source, plus upload MIME/signature validation.
 - REST API, read-only PostgreSQL, and bounded website/sitemap connectors with scheduled sync.
-- Deterministic local embeddings, pgvector similarity search, PostgreSQL full-text search, and reciprocal-rank fusion.
+- Explicit `aegis-hash-384` deterministic local embeddings, pgvector similarity search, PostgreSQL full-text search, and reciprocal-rank fusion; unsupported model identifiers are rejected rather than silently mixed in one index.
 - Optional Cohere reranking with a free lexical fallback.
 - Swappable generation-provider interface with Groq timeout/rate-limit handling and a guaranteed free local fallback.
 - SSE streaming chat, structured citation cards, one-pass weak-context query rerouting, and tenant-scoped near-duplicate semantic caching.
