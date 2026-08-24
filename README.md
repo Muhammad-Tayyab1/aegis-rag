@@ -29,7 +29,7 @@ Naive RAG fails silently: weak context goes into a model, a confident answer com
 - Optional Cohere reranking with a free lexical fallback.
 - Swappable generation-provider interface with Groq timeout/rate-limit handling and a guaranteed free local fallback.
 - SSE streaming chat, structured citation cards, one-pass weak-context query rerouting, and tenant-scoped near-duplicate semantic caching.
-- Admin retrieval trace viewer, thumbs-up/down feedback, provider-aware query metering and cost dashboard, optional billing webhook.
+- Admin retrieval trace viewer, thumbs-up/down feedback, provider-aware query metering and cost dashboard, optional idempotent billing webhook milestones.
 - Intent-gated `create_ticket` tool with persisted tickets and trace entries.
 - Golden Q&A evaluation command, Jest tests, and GitHub Actions CI.
 

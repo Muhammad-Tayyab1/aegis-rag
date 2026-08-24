@@ -40,8 +40,23 @@ model Tenant {
   tickets         Ticket[]
   cache           SemanticCache[]
   rateLimitWindow TenantRateLimitWindow?
+  billingEvents   BillingEvent[]
 
   @@map("tenants")
+}
+
+model BillingEvent {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  milestone   Int
+  payload     Json
+  deliveredAt DateTime? @map("delivered_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, milestone])
+  @@index([tenantId, createdAt])
+  @@map("billing_events")
 }
 
 model TenantRateLimitWindow {
