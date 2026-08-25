@@ -111,6 +111,7 @@ docker compose up --build
 | Variable                                                                  | Purpose                                                   | Required                  |
 | ------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------- |
 | `DATABASE_URL`                                                            | PostgreSQL connection with pgvector enabled               | Yes                       |
+| `POSTGRES_PORT`                                                           | Local Compose PostgreSQL host port                        | No; defaults to 5432      |
 | `JWT_SECRET`                                                              | Access and refresh-token signing secret                   | Yes                       |
 | `CONNECTOR_ENCRYPTION_KEY`                                                | 32-byte hex key for stored database connector credentials | For PostgreSQL connectors |
 | `WEB_ORIGIN`                                                              | Comma-separated allowed browser origins                   | Recommended               |
