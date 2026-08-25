@@ -12,7 +12,7 @@ async function load() {
   components ??= (async () => {
     const modelId = process.env.LOCAL_RERANK_MODEL ?? defaultModel;
     const { AutoModelForSequenceClassification, AutoTokenizer } =
-      await nativeImport("@xenova/transformers");
+      await nativeImport("@huggingface/transformers");
     const [tokenizer, model] = await Promise.all([
       AutoTokenizer.from_pretrained(modelId),
       AutoModelForSequenceClassification.from_pretrained(modelId),

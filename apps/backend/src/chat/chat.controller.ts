@@ -11,6 +11,7 @@ import { TenantRateLimitGuard } from "../common/tenant/tenant-rate-limit.guard";
 import { SemanticCacheService } from "./semantic-cache.service";
 import { estimatedTokens } from "./usage-cost";
 import { traceSequence } from "../tracing/trace-order";
+import { parseTicketIntent } from "./ticket-intent";
 class Ask {
   @IsString() question!: string;
 }
@@ -54,9 +55,7 @@ export class ChatController {
       ];
       rerouteLatencyMs = Math.round(performance.now() - rerouteStarted);
     }
-    const ticketMatch = b.question.match(
-      /(?:file|create|open)\s+(?:a\s+)?(?:bug|ticket)(?:\s+for)?\s+(.+)/i,
-    );
+    const ticketIntent = parseTicketIntent(b.question);
     const generationStarted = performance.now();
     const generation = cached
       ? {
@@ -67,17 +66,19 @@ export class ChatController {
           outputTokens: estimatedTokens(cached.answer),
           estimatedCostUsd: 0,
         }
-      : ticketMatch
+      : ticketIntent
         ? {
-            text: `Ticket created: ${ticketMatch[1]}`,
+            text: `Ticket created: ${ticketIntent.summary}`,
             provider: "tool",
             model: "create_ticket",
             inputTokens: estimatedTokens(b.question),
-            outputTokens: estimatedTokens(`Ticket created: ${ticketMatch[1]}`),
+            outputTokens: estimatedTokens(
+              `Ticket created: ${ticketIntent.summary}`,
+            ),
             estimatedCostUsd: 0,
           }
         : await this.llm.answer(b.question, hits, onToken);
-    if (onToken && (cached || ticketMatch))
+    if (onToken && (cached || ticketIntent))
       for (const token of generation.text.split(/(\s+)/)) await onToken(token);
     const generationLatencyMs = Math.round(
       performance.now() - generationStarted,
@@ -94,15 +95,13 @@ export class ChatController {
           estimatedCostUsd: generation.estimatedCostUsd,
         },
       });
-      if (ticketMatch) {
+      if (ticketIntent) {
         const ticket = await tx.ticket.create({
           data: {
             tenantId: u.tenantId,
             queryId: q.id,
-            summary: ticketMatch[1],
-            priority: /urgent|critical|high/i.test(b.question)
-              ? "high"
-              : "medium",
+            summary: ticketIntent.summary,
+            priority: ticketIntent.priority,
           },
         });
         await tx.queryTrace.create({
@@ -192,7 +191,7 @@ export class ChatController {
         document: h.filename,
         snippet: h.content.slice(0, 240),
       }));
-      if (!cached && !ticketMatch)
+      if (!cached && !ticketIntent)
         await this.cache.store(u.tenantId, b.question, answer, citations, tx);
       return {
         queryId: q.id,

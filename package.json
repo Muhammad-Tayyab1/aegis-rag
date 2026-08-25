@@ -23,5 +23,8 @@
     "prettier": "^3.5.3",
     "prisma": "^6.1.0",
     "tsx": "^4.19.2"
+  },
+  "overrides": {
+    "deepmerge-ts": "^8.0.0"
   }
 }
