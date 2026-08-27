@@ -69,6 +69,54 @@ p {
   opacity: 0.55;
   cursor: not-allowed;
 }
+.button.disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.document-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.document-row:last-child {
+  border-bottom: 0;
+}
+.document-row small {
+  display: block;
+  margin-top: 7px;
+  color: var(--muted);
+}
+.document-row small.error {
+  color: #b42318;
+}
+.document-actions {
+  display: flex;
+  gap: 8px;
+}
+.status {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: #e5e7eb;
+  color: #374151;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+.status-ready {
+  background: #dff3e9;
+  color: #135a4b;
+}
+.status-failed {
+  background: #fee4e2;
+  color: #b42318;
+}
+.status-processing {
+  background: #e0ecff;
+  color: #1849a9;
+}
 .card {
   width: min(420px, calc(100vw - 40px));
   background: var(--card);

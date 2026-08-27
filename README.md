@@ -22,7 +22,7 @@ Naive RAG fails silently: weak context goes into a model, a confident answer com
 - JWT access and rotating/revocable refresh tokens, Argon2 password hashing, roles, global IP throttling, and PostgreSQL-backed per-tenant rate limits shared across replicas.
 - Tenant-scoped Prisma transactions backed by PostgreSQL row-level security.
 - Restricted runtime database role plus integration tests proving raw reads and writes cannot cross tenants.
-- TXT, Markdown, CSV, JSON, PDF, and DOCX ingestion with version replacement.
+- Durable, retryable TXT, Markdown, CSV, JSON, PDF, and DOCX ingestion with atomic version replacement.
 - Centralized email/phone redaction and prompt-injection rejection for files and every connector source, plus upload MIME/signature validation.
 - REST API, read-only PostgreSQL, and bounded website/sitemap connectors with scheduled sync.
 - Explicit `aegis-hash-384` deterministic local embeddings, pgvector similarity search, PostgreSQL full-text search, and reciprocal-rank fusion; unsupported model identifiers are rejected rather than silently mixed in one index.
@@ -133,7 +133,7 @@ See [.env.example](.env.example) for the complete template. Never commit `.env`.
 - Add a website or sitemap crawler. Crawling is HTTPS-only, same-origin, capped at 20 pages, and blocks private/special-use network targets.
 - Create a PostgreSQL connector through the API with a connection string and one read-only `SELECT` query. The connection string is encrypted before storage.
 
-Connectors can be synced manually and REST/crawler sources are refreshed hourly. Re-ingesting the same logical source replaces its old chunks so stale duplicates do not accumulate.
+Connectors can be synced manually and REST/crawler sources are refreshed hourly. File uploads are queued in PostgreSQL, retried with bounded backoff, and expose their processing state in the Documents screen. A newly ingested version replaces its old chunks only after the new version is ready, so a failed replacement does not remove working knowledge.
 
 ## Retrieval flow
 

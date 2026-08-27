@@ -3,6 +3,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Post,
   UploadedFile,
@@ -39,7 +41,12 @@ export class IngestionController {
   ) {
     return this.s.remove(u.tenantId, id);
   }
+  @Post(":id/retry")
+  retry(@Param("id") id: string, @CurrentUser() u: AuthenticatedUser) {
+    return this.s.retry(u.tenantId, id);
+  }
   @Post("upload")
+  @HttpCode(HttpStatus.ACCEPTED)
   @UseInterceptors(
     FileInterceptor("file", { limits: { fileSize: 10_000_000 } }),
   )
@@ -56,6 +63,6 @@ export class IngestionController {
     else if (["txt", "md", "csv", "json"].includes(ext ?? ""))
       content = f.buffer.toString();
     else throw new BadRequestException("Unsupported document type");
-    return this.s.ingest(u.tenantId, filename, content, "file");
+    return this.s.enqueue(u.tenantId, filename, content, "file");
   }
 }

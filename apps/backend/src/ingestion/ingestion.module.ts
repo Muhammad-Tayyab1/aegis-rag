@@ -11,6 +11,7 @@ import {
   PostgresConnector,
   RestConnector,
 } from "./connectors/connector-fetchers.service";
+import { IngestionWorkerService } from "./ingestion-worker.service";
 @Module({
   imports: [RetrievalModule],
   providers: [
@@ -21,6 +22,7 @@ import {
     RestConnector,
     CrawlerConnector,
     PostgresConnector,
+    IngestionWorkerService,
   ],
   controllers: [IngestionController, ConnectorsController],
 })

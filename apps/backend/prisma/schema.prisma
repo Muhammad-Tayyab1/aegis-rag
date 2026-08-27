@@ -23,6 +23,15 @@ enum DocumentStatus {
   @@map("document_status")
 }
 
+enum IngestionJobStatus {
+  pending
+  processing
+  completed
+  failed
+
+  @@map("ingestion_job_status")
+}
+
 model Tenant {
   id              String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name            String
@@ -41,6 +50,7 @@ model Tenant {
   cache           SemanticCache[]
   rateLimitWindow TenantRateLimitWindow?
   billingEvents   BillingEvent[]
+  ingestionJobs   IngestionJob[]
 
   @@map("tenants")
 }
@@ -97,19 +107,42 @@ model User {
 }
 
 model Document {
-  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId    String         @map("tenant_id") @db.Uuid
-  sourceType  String         @map("source_type")
-  filename    String
-  sourceUri   String?        @map("source_uri")
-  status      DocumentStatus @default(pending)
-  contentHash String?        @map("content_hash")
-  uploadedAt  DateTime       @default(now()) @map("uploaded_at") @db.Timestamptz(6)
-  updatedAt   DateTime       @default(now()) @map("updated_at") @db.Timestamptz(6)
-  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  chunks      Chunk[]
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String         @map("tenant_id") @db.Uuid
+  sourceType    String         @map("source_type")
+  filename      String
+  sourceUri     String?        @map("source_uri")
+  status        DocumentStatus @default(pending)
+  contentHash   String?        @map("content_hash")
+  uploadedAt    DateTime       @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @default(now()) @map("updated_at") @db.Timestamptz(6)
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  chunks        Chunk[]
+  ingestionJobs IngestionJob[]
 
   @@map("documents")
+}
+
+model IngestionJob {
+  id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String             @map("tenant_id") @db.Uuid
+  documentId  String             @map("document_id") @db.Uuid
+  sourceKey   String             @map("source_key")
+  content     String
+  status      IngestionJobStatus @default(pending)
+  attempts    Int                @default(0)
+  maxAttempts Int                @default(3) @map("max_attempts")
+  availableAt DateTime           @default(now()) @map("available_at") @db.Timestamptz(6)
+  lockedAt    DateTime?          @map("locked_at") @db.Timestamptz(6)
+  lastError   String?            @map("last_error")
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime           @default(now()) @map("updated_at") @db.Timestamptz(6)
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  document    Document           @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([status, availableAt])
+  @@index([tenantId, documentId])
+  @@map("ingestion_jobs")
 }
 
 model Chunk {
