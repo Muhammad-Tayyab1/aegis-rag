@@ -18,6 +18,7 @@ export default function LoginPage() {
         `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api"}/auth/login`,
         {
           method: "POST",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password }),
         },
@@ -25,7 +26,8 @@ export default function LoginPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.message ?? "Unable to sign in");
       localStorage.setItem("aegis.accessToken", data.accessToken);
-      localStorage.setItem("aegis.refreshToken", data.refreshToken);
+      localStorage.setItem("aegis.csrfToken", data.csrfToken);
+      localStorage.removeItem("aegis.refreshToken");
       router.push("/dashboard");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to sign in");

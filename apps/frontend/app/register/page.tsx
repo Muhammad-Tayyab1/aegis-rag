@@ -26,6 +26,7 @@ export default function RegisterPage() {
         `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api"}/auth/register`,
         {
           method: "POST",
+          credentials: "include",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             tenantSlug: tenantSlug.trim().toLowerCase(),
@@ -42,7 +43,8 @@ export default function RegisterPage() {
             : (data.message ?? "Unable to create account"),
         );
       localStorage.setItem("aegis.accessToken", data.accessToken);
-      localStorage.setItem("aegis.refreshToken", data.refreshToken);
+      localStorage.setItem("aegis.csrfToken", data.csrfToken);
+      localStorage.removeItem("aegis.refreshToken");
       router.push("/dashboard");
     } catch (cause) {
       setError(

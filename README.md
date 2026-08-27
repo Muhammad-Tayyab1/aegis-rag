@@ -19,7 +19,7 @@ Naive RAG fails silently: weak context goes into a model, a confident answer com
 
 ## Features
 
-- JWT access and rotating/revocable refresh tokens, Argon2 password hashing, roles, global IP throttling, and PostgreSQL-backed per-tenant rate limits shared across replicas.
+- JWT bearer access tokens, rotating/revocable HttpOnly refresh cookies, origin and CSRF protection, Argon2 password hashing, roles, global IP throttling, and PostgreSQL-backed per-tenant rate limits shared across replicas.
 - Tenant-scoped Prisma transactions backed by PostgreSQL row-level security.
 - Restricted runtime database role plus integration tests proving raw reads and writes cannot cross tenants.
 - Durable, retryable TXT, Markdown, CSV, JSON, PDF, and DOCX ingestion with atomic version replacement.
@@ -109,21 +109,21 @@ docker compose up --build
 
 ## Configuration
 
-| Variable                                                                  | Purpose                                                   | Required                  |
-| ------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------- |
-| `DATABASE_URL`                                                            | PostgreSQL connection with pgvector enabled               | Yes                       |
-| `POSTGRES_PORT`                                                           | Local Compose PostgreSQL host port                        | No; defaults to 5432      |
-| `JWT_SECRET`                                                              | Access and refresh-token signing secret                   | Yes                       |
-| `CONNECTOR_ENCRYPTION_KEY`                                                | 32-byte hex key for stored database connector credentials | For PostgreSQL connectors |
-| `WEB_ORIGIN`                                                              | Comma-separated allowed browser origins                   | Recommended               |
-| `TENANT_RATE_LIMIT_PER_MINUTE`                                            | Per-tenant API limit                                      | No; defaults to 120       |
-| `SEMANTIC_CACHE_SIMILARITY`, `SEMANTIC_CACHE_TTL_HOURS`                   | Cache match threshold and lifetime                        | No                        |
-| `GROQ_API_KEY`, `GROQ_MODEL`                                              | Optional hosted answer generation                         | No                        |
-| `GROQ_INPUT_USD_PER_MILLION_TOKENS`, `GROQ_OUTPUT_USD_PER_MILLION_TOKENS` | Configurable Groq metering rates                          | No; defaults to free      |
-| `COHERE_API_KEY`, `COHERE_RERANK_MODEL`, `LOCAL_RERANK_MODEL`             | Hosted or local cross-encoder reranking                   | No                        |
-| `BILLING_QUERY_THRESHOLD`, `BILLING_WEBHOOK_URL`                          | Optional usage notification                               | No                        |
-| `EVAL_API_URL`, `EVAL_TOKEN`                                              | Golden-set evaluation target and tenant access token      | For `npm run eval`        |
-| `SEED_ADMIN_PASSWORD`, `SEED_MEMBER_PASSWORD`                             | Passwords used by the seed script                         | For seeding               |
+| Variable                                                                  | Purpose                                                               | Required                  |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------- |
+| `DATABASE_URL`                                                            | PostgreSQL connection with pgvector enabled                           | Yes                       |
+| `POSTGRES_PORT`                                                           | Local Compose PostgreSQL host port                                    | No; defaults to 5432      |
+| `JWT_SECRET`                                                              | Access and refresh-token signing secret                               | Yes                       |
+| `CONNECTOR_ENCRYPTION_KEY`                                                | 32-byte hex key for stored database connector credentials             | For PostgreSQL connectors |
+| `WEB_ORIGIN`                                                              | Comma-separated trusted browser origins for CORS and session requests | Required in production    |
+| `TENANT_RATE_LIMIT_PER_MINUTE`                                            | Per-tenant API limit                                                  | No; defaults to 120       |
+| `SEMANTIC_CACHE_SIMILARITY`, `SEMANTIC_CACHE_TTL_HOURS`                   | Cache match threshold and lifetime                                    | No                        |
+| `GROQ_API_KEY`, `GROQ_MODEL`                                              | Optional hosted answer generation                                     | No                        |
+| `GROQ_INPUT_USD_PER_MILLION_TOKENS`, `GROQ_OUTPUT_USD_PER_MILLION_TOKENS` | Configurable Groq metering rates                                      | No; defaults to free      |
+| `COHERE_API_KEY`, `COHERE_RERANK_MODEL`, `LOCAL_RERANK_MODEL`             | Hosted or local cross-encoder reranking                               | No                        |
+| `BILLING_QUERY_THRESHOLD`, `BILLING_WEBHOOK_URL`                          | Optional usage notification                                           | No                        |
+| `EVAL_API_URL`, `EVAL_TOKEN`                                              | Golden-set evaluation target and tenant access token                  | For `npm run eval`        |
+| `SEED_ADMIN_PASSWORD`, `SEED_MEMBER_PASSWORD`                             | Passwords used by the seed script                                     | For seeding               |
 
 See [.env.example](.env.example) for the complete template. Never commit `.env`.
 

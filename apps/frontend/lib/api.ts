@@ -3,18 +3,29 @@ let refreshInFlight: Promise<boolean> | null = null;
 
 export function clearSession() {
   localStorage.removeItem("aegis.accessToken");
+  // Remove tokens created by releases before refresh credentials moved to cookies.
   localStorage.removeItem("aegis.refreshToken");
+  localStorage.removeItem("aegis.csrfToken");
+}
+
+function csrfToken() {
+  const stored = localStorage.getItem("aegis.csrfToken");
+  if (stored) return stored;
+  const prefix = "aegis.csrf=";
+  const cookie = document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(prefix));
+  return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : "";
 }
 
 async function refreshAccessToken() {
   if (refreshInFlight) return refreshInFlight;
   refreshInFlight = (async () => {
-    const refreshToken = localStorage.getItem("aegis.refreshToken");
-    if (!refreshToken) return false;
     const response = await fetch(`${api}/auth/refresh`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ refreshToken }),
+      credentials: "include",
+      headers: { "x-csrf-token": csrfToken() },
     });
     if (!response.ok) {
       clearSession();
@@ -22,7 +33,7 @@ async function refreshAccessToken() {
     }
     const tokens = await response.json();
     localStorage.setItem("aegis.accessToken", tokens.accessToken);
-    localStorage.setItem("aegis.refreshToken", tokens.refreshToken);
+    localStorage.setItem("aegis.csrfToken", tokens.csrfToken);
     return true;
   })().finally(() => {
     refreshInFlight = null;
@@ -34,9 +45,15 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
   const request = (accessToken: string) =>
     fetch(`${api}${path}`, {
       ...init,
+      credentials: "include",
       headers: {
         ...init.headers,
         Authorization: `Bearer ${accessToken}`,
+        ...(["POST", "PATCH", "DELETE"].includes(
+          (init.method ?? "GET").toUpperCase(),
+        )
+          ? { "x-csrf-token": csrfToken() }
+          : {}),
       },
     });
   let accessToken = localStorage.getItem("aegis.accessToken") ?? "";
