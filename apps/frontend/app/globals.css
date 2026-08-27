@@ -161,12 +161,51 @@ p {
   overflow-wrap: anywhere;
   text-align: right;
 }
+.member-invite {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) 180px auto;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.invite-link,
+.member-list {
+  margin: 18px 0 32px;
+  padding: 18px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+.invite-link input {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+}
+.member-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 160px 150px auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.member-row:last-child {
+  border-bottom: 0;
+}
+.member-row small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+}
 @media (max-width: 800px) {
   .audit-filters {
     grid-template-columns: 1fr;
   }
   .audit-row {
     display: block;
+  }
+  .member-invite,
+  .member-row {
+    grid-template-columns: 1fr;
   }
   .audit-resource {
     max-width: none;

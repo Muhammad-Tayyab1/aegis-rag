@@ -41,7 +41,7 @@ async function main() {
     const passwordHash = await argon2.hash(password);
     await prisma.user.upsert({
       where: { email: item.email },
-      update: { passwordHash, role: item.role },
+      update: { passwordHash, role: item.role, status: "active" },
       create: {
         tenantId: item.id,
         email: item.email,

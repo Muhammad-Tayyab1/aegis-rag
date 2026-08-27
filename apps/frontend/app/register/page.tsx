@@ -1,17 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function RegisterPage() {
-  const [tenantSlug, setTenantSlug] = useState("");
+  const [invitationToken, setInvitationToken] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    setInvitationToken(
+      new URLSearchParams(window.location.search).get("token") ?? "",
+    );
+  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -29,7 +35,7 @@ export default function RegisterPage() {
           credentials: "include",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            tenantSlug: tenantSlug.trim().toLowerCase(),
+            invitationToken: invitationToken.trim(),
             email: email.trim().toLowerCase(),
             password,
           }),
@@ -60,15 +66,14 @@ export default function RegisterPage() {
       <form onSubmit={submit} className="card">
         <div className="eyebrow">AEGIS RAG</div>
         <h1>Join a workspace</h1>
-        <p>Use the workspace slug provided by your administrator.</p>
+        <p>Accept an invitation from your workspace administrator.</p>
         <label>
-          Workspace slug
+          Invitation token
           <input
-            value={tenantSlug}
-            onChange={(event) => setTenantSlug(event.target.value)}
-            pattern="[a-z0-9-]+"
-            placeholder="aegis-demo"
-            autoComplete="organization"
+            value={invitationToken}
+            onChange={(event) => setInvitationToken(event.target.value)}
+            placeholder="Paste your invitation token"
+            autoComplete="off"
             required
           />
         </label>

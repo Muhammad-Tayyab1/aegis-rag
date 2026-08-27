@@ -31,6 +31,7 @@ Naive RAG fails silently: weak context goes into a model, a confident answer com
 - SSE streaming chat, structured citation cards, one-pass weak-context query rerouting, and tenant-scoped near-duplicate semantic caching.
 - Admin retrieval trace viewer, thumbs-up/down feedback, provider-aware query metering and cost dashboard, optional idempotent billing webhook milestones.
 - Append-only, tenant-isolated audit events for authentication, data changes, connector syncs, ingestion outcomes, configuration changes, and tool activity.
+- Expiring single-use workspace invitations, member role/status administration, final-admin protection, and immediate session revocation.
 - Intent-gated `create_ticket` tool with persisted tickets and trace entries.
 - Golden Q&A evaluation command, Jest tests, and GitHub Actions CI.
 
@@ -117,6 +118,7 @@ docker compose up --build
 | `CONNECTOR_ENCRYPTION_KEY`                                                | 32-byte hex key for stored database connector credentials             | For PostgreSQL connectors |
 | `WEB_ORIGIN`                                                              | Comma-separated trusted browser origins for CORS and session requests | Required in production    |
 | `TENANT_RATE_LIMIT_PER_MINUTE`                                            | Per-tenant API limit                                                  | No; defaults to 120       |
+| `INVITATION_TTL_HOURS`                                                    | Lifetime of single-use workspace invitations                          | No; defaults to 72        |
 | `SEMANTIC_CACHE_SIMILARITY`, `SEMANTIC_CACHE_TTL_HOURS`                   | Cache match threshold and lifetime                                    | No                        |
 | `GROQ_API_KEY`, `GROQ_MODEL`                                              | Optional hosted answer generation                                     | No                        |
 | `GROQ_INPUT_USD_PER_MILLION_TOKENS`, `GROQ_OUTPUT_USD_PER_MILLION_TOKENS` | Configurable Groq metering rates                                      | No; defaults to free      |
@@ -161,6 +163,7 @@ Retrieved text is explicitly framed as data, not instructions, in the generation
 | `/usage`      | Query, token, and estimated-cost totals           |
 | `/tickets`    | View tool-created tenant tickets                  |
 | `/audit`      | Admin-only mutation and system-event audit log    |
+| `/members`    | Admin invitations, roles, and account lifecycle   |
 
 ## Evaluation and validation
 

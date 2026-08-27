@@ -40,6 +40,7 @@ export default function DashboardPage() {
           <Link href="/chat">Chat</Link>
           <Link href="/traces">Traces</Link>
           <Link href="/audit">Audit log</Link>
+          <Link href="/members">Members</Link>
         </nav>
       </aside>
       <section>

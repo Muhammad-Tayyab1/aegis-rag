@@ -9,6 +9,7 @@ import { PrismaService } from "../common/database/prisma.service";
 import { AuthenticatedUser } from "../common/tenant/tenant.types";
 import { LoginDto, RegisterDto } from "./dto";
 import { AuditService } from "../audit/audit.service";
+import { createHash } from "node:crypto";
 
 @Injectable()
 export class AuthService {
@@ -18,23 +19,45 @@ export class AuthService {
     private readonly audit: AuditService,
   ) {}
   async register(input: RegisterDto) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: input.tenantSlug },
-      select: { id: true },
-    });
-    if (!tenant) throw new UnauthorizedException("Unknown workspace");
-    const existing = await this.prisma.user.findUnique({
-      where: { email: input.email.toLowerCase() },
-      select: { id: true },
-    });
-    if (existing) throw new ConflictException("Email already registered");
+    const tenantId = input.invitationToken.split(".")[0];
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        tenantId,
+      )
+    )
+      throw new UnauthorizedException("Invalid invitation");
+    const email = input.email.toLowerCase();
+    const tokenHash = createHash("sha256")
+      .update(input.invitationToken)
+      .digest("hex");
+    const pending = await this.prisma.withTenant(tenantId, (tx) =>
+      tx.invitation.findUnique({ where: { tokenHash } }),
+    );
+    this.assertInvitation(pending, tenantId, email);
     const hash = await argon2.hash(input.password);
-    const user = await this.prisma.user.create({
-      data: {
-        tenantId: tenant.id,
-        email: input.email.toLowerCase(),
-        passwordHash: hash,
-      },
+    const user = await this.prisma.withTenant(tenantId, async (tx) => {
+      const invitation = await tx.invitation.findUnique({
+        where: { tokenHash },
+      });
+      this.assertInvitation(invitation, tenantId, email);
+      let created;
+      try {
+        created = await tx.user.create({
+          data: {
+            tenantId,
+            email,
+            passwordHash: hash,
+            role: invitation.role,
+          },
+        });
+      } catch {
+        throw new ConflictException("Email already registered");
+      }
+      await tx.invitation.update({
+        where: { id: invitation.id },
+        data: { acceptedAt: new Date() },
+      });
+      return created;
     });
     return this.issue(user);
   }
@@ -42,7 +65,11 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { email: input.email.toLowerCase() },
     });
-    if (!user || !(await argon2.verify(user.passwordHash, input.password))) {
+    if (
+      !user ||
+      user.status !== "active" ||
+      !(await argon2.verify(user.passwordHash, input.password))
+    ) {
       if (user)
         await this.audit.record({
           tenantId: user.tenantId,
@@ -51,7 +78,12 @@ export class AuthService {
           action: "auth.login",
           resourceType: "auth",
           result: "failure",
-          metadata: { reason: "invalid_credentials" },
+          metadata: {
+            reason:
+              user.status === "active"
+                ? "invalid_credentials"
+                : "account_inactive",
+          },
         });
       throw new UnauthorizedException("Invalid email or password");
     }
@@ -67,6 +99,7 @@ export class AuthService {
         where: { id: payload.id },
       });
       if (
+        user?.status !== "active" ||
         !user?.refreshTokenHash ||
         !(await argon2.verify(user.refreshTokenHash, token))
       )
@@ -81,6 +114,27 @@ export class AuthService {
       where: { id: userId },
       data: { refreshTokenHash: null },
     });
+  }
+  private assertInvitation(
+    invitation: {
+      tenantId: string;
+      email: string;
+      acceptedAt: Date | null;
+      revokedAt: Date | null;
+      expiresAt: Date;
+    } | null,
+    tenantId: string,
+    email: string,
+  ): asserts invitation is NonNullable<typeof invitation> {
+    if (
+      !invitation ||
+      invitation.tenantId !== tenantId ||
+      invitation.email !== email ||
+      invitation.acceptedAt ||
+      invitation.revokedAt ||
+      invitation.expiresAt <= new Date()
+    )
+      throw new UnauthorizedException("Invalid or expired invitation");
   }
   private async issue(user: {
     id: string;

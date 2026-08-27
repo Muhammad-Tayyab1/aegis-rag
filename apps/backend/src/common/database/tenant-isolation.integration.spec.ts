@@ -12,6 +12,8 @@ describeDatabase("tenant row-level isolation", () => {
   });
   const tenantA = randomUUID();
   const tenantB = randomUUID();
+  const userA = randomUUID();
+  const userB = randomUUID();
 
   beforeAll(async () => {
     await owner.tenant.createMany({
@@ -33,6 +35,42 @@ describeDatabase("tenant row-level isolation", () => {
           filename: "tenant-b-secret.txt",
           sourceType: "test",
           status: "ready",
+        },
+      ],
+    });
+    await owner.user.createMany({
+      data: [
+        {
+          id: userA,
+          tenantId: tenantA,
+          email: `isolation-a-${userA}@example.com`,
+          passwordHash: "test-only",
+          role: "admin",
+        },
+        {
+          id: userB,
+          tenantId: tenantB,
+          email: `isolation-b-${userB}@example.com`,
+          passwordHash: "test-only",
+          role: "admin",
+        },
+      ],
+    });
+    await owner.invitation.createMany({
+      data: [
+        {
+          tenantId: tenantA,
+          email: "invite-a@example.com",
+          tokenHash: `hash-${tenantA}`,
+          createdById: userA,
+          expiresAt: new Date(Date.now() + 60_000),
+        },
+        {
+          tenantId: tenantB,
+          email: "invite-b@example.com",
+          tokenHash: `hash-${tenantB}`,
+          createdById: userB,
+          expiresAt: new Date(Date.now() + 60_000),
         },
       ],
     });
@@ -101,5 +139,19 @@ describeDatabase("tenant row-level isolation", () => {
         tx.auditEvent.deleteMany({ where: { tenantId: tenantA } }),
       ),
     ).rejects.toThrow();
+  });
+
+  it("isolates workspace invitations", async () => {
+    const visible = await scoped.withTenant(tenantA, (tx) =>
+      tx.invitation.findMany({ select: { email: true } }),
+    );
+    expect(visible).toEqual([{ email: "invite-a@example.com" }]);
+    const changed = await scoped.withTenant(tenantA, (tx) =>
+      tx.invitation.updateMany({
+        where: { tenantId: tenantB },
+        data: { revokedAt: new Date() },
+      }),
+    );
+    expect(changed.count).toBe(0);
   });
 });
