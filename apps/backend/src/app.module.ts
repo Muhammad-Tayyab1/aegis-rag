@@ -13,11 +13,13 @@ import { TicketController } from "./tools/ticket.controller";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { APP_GUARD } from "@nestjs/core";
 import { ScheduleModule } from "@nestjs/schedule";
+import { AuditModule } from "./audit/audit.module";
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
+    AuditModule,
     AuthModule,
     TenantsModule,
     IngestionModule,

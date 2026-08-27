@@ -39,6 +39,7 @@ export default function DashboardPage() {
           <Link href="/connectors">Connectors</Link>
           <Link href="/chat">Chat</Link>
           <Link href="/traces">Traces</Link>
+          <Link href="/audit">Audit log</Link>
         </nav>
       </aside>
       <section>

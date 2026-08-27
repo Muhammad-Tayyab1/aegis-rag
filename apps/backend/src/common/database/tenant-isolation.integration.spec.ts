@@ -36,6 +36,12 @@ describeDatabase("tenant row-level isolation", () => {
         },
       ],
     });
+    await owner.auditEvent.createMany({
+      data: [
+        { tenantId: tenantA, action: "document.upload", result: "success" },
+        { tenantId: tenantB, action: "tenant.update", result: "success" },
+      ],
+    });
   });
 
   afterAll(async () => {
@@ -81,6 +87,18 @@ describeDatabase("tenant row-level isolation", () => {
             sourceType: "test",
           },
         }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("isolates audit records and keeps them append-only", async () => {
+    const visible = await scoped.withTenant(tenantA, (tx) =>
+      tx.auditEvent.findMany({ select: { action: true } }),
+    );
+    expect(visible).toEqual([{ action: "document.upload" }]);
+    await expect(
+      scoped.withTenant(tenantA, (tx) =>
+        tx.auditEvent.deleteMany({ where: { tenantId: tenantA } }),
       ),
     ).rejects.toThrow();
   });

@@ -3,6 +3,7 @@ import { Cron } from "@nestjs/schedule";
 import { PrismaService } from "../common/database/prisma.service";
 import { IngestionService } from "./ingestion.service";
 import { ConnectorFetchers } from "./connectors/connector-fetchers.service";
+import { AuditService } from "../audit/audit.service";
 
 @Injectable()
 export class ConnectorSyncService {
@@ -10,6 +11,7 @@ export class ConnectorSyncService {
     private prisma: PrismaService,
     private ingestion: IngestionService,
     private fetchers: ConnectorFetchers,
+    private audit: AuditService,
   ) {}
   @Cron("0 * * * *")
   async syncRestConnectors() {
@@ -40,7 +42,30 @@ export class ConnectorSyncService {
               data: { lastSyncedAt: new Date() },
             }),
           );
-        } catch {
+          await this.audit.record({
+            tenantId: tenant.id,
+            action: "connector.sync",
+            resourceType: "connector",
+            resourceId: connector.id,
+            result: "success",
+            metadata: { source: "schedule", type: connector.type },
+          });
+        } catch (error) {
+          await this.audit.record({
+            tenantId: tenant.id,
+            action: "connector.sync",
+            resourceType: "connector",
+            resourceId: connector.id,
+            result: "failure",
+            metadata: {
+              source: "schedule",
+              type: connector.type,
+              errorType:
+                error instanceof Error
+                  ? error.constructor.name
+                  : "UnknownError",
+            },
+          });
           continue;
         }
       }

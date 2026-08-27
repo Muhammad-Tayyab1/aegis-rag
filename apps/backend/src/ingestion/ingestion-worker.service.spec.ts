@@ -11,7 +11,11 @@ describe("IngestionWorkerService retries", () => {
       }),
     ),
   };
-  const worker = new IngestionWorkerService(prisma as never, {} as never);
+  const worker = new IngestionWorkerService(
+    prisma as never,
+    {} as never,
+    { record: jest.fn() } as never,
+  );
 
   beforeEach(() => jest.clearAllMocks());
 

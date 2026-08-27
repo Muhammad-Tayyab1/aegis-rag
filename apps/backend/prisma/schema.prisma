@@ -51,6 +51,7 @@ model Tenant {
   rateLimitWindow TenantRateLimitWindow?
   billingEvents   BillingEvent[]
   ingestionJobs   IngestionJob[]
+  auditEvents     AuditEvent[]
 
   @@map("tenants")
 }
@@ -93,15 +94,16 @@ model TenantConfig {
 }
 
 model User {
-  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId         String   @map("tenant_id") @db.Uuid
-  email            String   @unique
-  passwordHash     String   @map("password_hash")
-  refreshTokenHash String?  @map("refresh_token_hash")
-  role             UserRole @default(member)
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String       @map("tenant_id") @db.Uuid
+  email            String       @unique
+  passwordHash     String       @map("password_hash")
+  refreshTokenHash String?      @map("refresh_token_hash")
+  role             UserRole     @default(member)
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   queries          Query[]
+  auditEvents      AuditEvent[] @relation("AuditActor")
 
   @@map("users")
 }
@@ -143,6 +145,26 @@ model IngestionJob {
   @@index([status, availableAt])
   @@index([tenantId, documentId])
   @@map("ingestion_jobs")
+}
+
+model AuditEvent {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  actorId      String?  @map("actor_id") @db.Uuid
+  actorEmail   String?  @map("actor_email")
+  action       String
+  resourceType String?  @map("resource_type")
+  resourceId   String?  @map("resource_id")
+  result       String
+  ipAddress    String?  @map("ip_address")
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor        User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, action, createdAt])
+  @@map("audit_events")
 }
 
 model Chunk {

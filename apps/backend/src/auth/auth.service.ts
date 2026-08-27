@@ -8,12 +8,14 @@ import * as argon2 from "argon2";
 import { PrismaService } from "../common/database/prisma.service";
 import { AuthenticatedUser } from "../common/tenant/tenant.types";
 import { LoginDto, RegisterDto } from "./dto";
+import { AuditService } from "../audit/audit.service";
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly audit: AuditService,
   ) {}
   async register(input: RegisterDto) {
     const tenant = await this.prisma.tenant.findUnique({
@@ -40,8 +42,19 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { email: input.email.toLowerCase() },
     });
-    if (!user || !(await argon2.verify(user.passwordHash, input.password)))
+    if (!user || !(await argon2.verify(user.passwordHash, input.password))) {
+      if (user)
+        await this.audit.record({
+          tenantId: user.tenantId,
+          actorId: user.id,
+          actorEmail: user.email,
+          action: "auth.login",
+          resourceType: "auth",
+          result: "failure",
+          metadata: { reason: "invalid_credentials" },
+        });
       throw new UnauthorizedException("Invalid email or password");
+    }
     return this.issue(user);
   }
   async refresh(token: string) {

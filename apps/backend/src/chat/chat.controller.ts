@@ -12,6 +12,7 @@ import { SemanticCacheService } from "./semantic-cache.service";
 import { estimatedTokens } from "./usage-cost";
 import { traceSequence } from "../tracing/trace-order";
 import { parseTicketIntent } from "./ticket-intent";
+import { AuditService } from "../audit/audit.service";
 class Ask {
   @IsString() question!: string;
 }
@@ -23,6 +24,7 @@ export class ChatController {
     private p: PrismaService,
     private llm: LlmService,
     private cache: SemanticCacheService,
+    private audit: AuditService,
   ) {}
   private async context(
     b: Ask,
@@ -84,7 +86,8 @@ export class ChatController {
       performance.now() - generationStarted,
     );
     const answer = generation.text;
-    return this.p.withTenant(u.tenantId, async (tx) => {
+    let createdTicketId: string | undefined;
+    const result = await this.p.withTenant(u.tenantId, async (tx) => {
       const q = await tx.query.create({
         data: {
           tenantId: u.tenantId,
@@ -104,6 +107,7 @@ export class ChatController {
             priority: ticketIntent.priority,
           },
         });
+        createdTicketId = ticket.id;
         await tx.queryTrace.create({
           data: {
             tenantId: u.tenantId,
@@ -199,6 +203,18 @@ export class ChatController {
         citations: cached ? (cached.citations as any[]) : citations,
       };
     });
+    if (createdTicketId)
+      await this.audit.record({
+        tenantId: u.tenantId,
+        actorId: u.id,
+        actorEmail: u.email,
+        action: "ticket.create",
+        resourceType: "ticket",
+        resourceId: createdTicketId,
+        result: "success",
+        metadata: { source: "chat_tool", priority: ticketIntent?.priority },
+      });
+    return result;
   }
   @Post() ask(@Body() b: Ask, @CurrentUser() u: AuthenticatedUser) {
     return this.context(b, u);

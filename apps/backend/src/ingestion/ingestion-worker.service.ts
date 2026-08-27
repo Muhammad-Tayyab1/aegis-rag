@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import { PrismaService } from "../common/database/prisma.service";
 import { IngestionService } from "./ingestion.service";
+import { AuditService } from "../audit/audit.service";
 
 type ClaimedJob = {
   id: string;
@@ -20,6 +21,7 @@ export class IngestionWorkerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ingestion: IngestionService,
+    private readonly audit: AuditService,
   ) {}
 
   @Cron("*/5 * * * * *")
@@ -98,6 +100,14 @@ export class IngestionWorkerService {
         job.id,
         chunks,
       );
+      await this.audit.record({
+        tenantId: job.tenantId,
+        action: "document.ingestion_completed",
+        resourceType: "document",
+        resourceId: job.documentId,
+        result: "success",
+        metadata: { attempts: job.attempts, chunks: chunks.length },
+      });
     } catch (error) {
       await this.fail(job, error);
     }
@@ -129,5 +139,19 @@ export class IngestionWorkerService {
       });
     });
     this.logger.warn(`Ingestion job ${job.id} failed: ${message}`);
+    await this.audit.record({
+      tenantId: job.tenantId,
+      action: terminal
+        ? "document.ingestion_failed"
+        : "document.ingestion_retry_scheduled",
+      resourceType: "document",
+      resourceId: job.documentId,
+      result: terminal ? "failure" : "success",
+      metadata: {
+        attempts: job.attempts,
+        maxAttempts: job.maxAttempts,
+        error: message,
+      },
+    });
   }
 }
